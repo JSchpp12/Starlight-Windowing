@@ -2,7 +2,7 @@
 
 #include "star_windowing/PresentationCommands.hpp"
 #include "star_windowing/StarWindow.hpp"
-#include "star_windowing/policy/WindowingContext.hpp"
+#include "star_windowing/WindowingContext.hpp"
 
 #include <memory>
 #include <starlight/core/renderer/DefaultRenderer.hpp>

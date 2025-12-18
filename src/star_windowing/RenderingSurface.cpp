@@ -1,5 +1,7 @@
 #include "star_windowing/RenderingSurface.hpp"
 
+#include <GLFW/glfw3.h>
+
 namespace star::windowing
 {
 vk::SurfaceKHR RenderingSurface::CreateSurface(vk::Instance instance, StarWindow &window)

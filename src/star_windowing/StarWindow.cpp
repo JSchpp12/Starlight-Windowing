@@ -1,6 +1,6 @@
 #include "star_windowing/StarWindow.hpp"
 
-namespace star
+namespace star::windowing
 {
 
 void StarWindow::cleanupRender(){
@@ -11,7 +11,6 @@ void StarWindow::initWindowInfo()
 {
     // need to give GLFW a pointer to current instance of this class
     glfwSetWindowUserPointer(this->window, this);
-
     // glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     // auto callback = glfwSetKeyCallback(this->window, InteractionSystem::glfwKeyHandle);
     // auto mouseButtonCallback = glfwSetMouseButtonCallback(this->window, InteractionSystem::glfwMouseButtonCallback);
@@ -43,11 +42,11 @@ StarWindow::Builder &StarWindow::Builder::setTitle(const std::string &nTitle)
     return *this;
 }
 
-star::StarWindow StarWindow::Builder::build(){
+StarWindow StarWindow::Builder::build(){
     return StarWindow(this->width, this->height, this->title);
 }
 
-std::unique_ptr<star::StarWindow> StarWindow::Builder::buildUnique()
+std::unique_ptr<StarWindow> StarWindow::Builder::buildUnique()
 {
     assert(this->width > 0 && this->height > 0 && "Width and height must be defined");
 

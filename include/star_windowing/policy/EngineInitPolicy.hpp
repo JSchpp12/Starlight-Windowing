@@ -1,6 +1,6 @@
 #pragma once
 
-#include <star_windowing/policy/WindowingContext.hpp>
+#include <star_windowing/WindowingContext.hpp>
 #include <starlight/core/RenderingInstance.hpp>
 #include <starlight/core/device/StarDevice.hpp>
 #include <starlight/core/renderer/RendererBase.hpp>
@@ -24,7 +24,7 @@ class EngineInitPolicy
                                              std::set<Rendering_Device_Features> &engineRenderingDeviceFeatures);
     vk::Extent2D getEngineRenderingResolution() const;
 
-    void cleanup(vk::Instance); 
+    void cleanup(vk::Instance);
 
   private:
     WindowingContext &m_winContext;
