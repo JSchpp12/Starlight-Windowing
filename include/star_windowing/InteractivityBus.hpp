@@ -14,7 +14,9 @@ class InteractivityBus
 
     static void GlfwCallbackMouseMovement(GLFWwindow *window, double xpos, double ypos); 
 
-    // static void GlfwCallbackMouseButton(GLFWWindow *window)
+    static void GlfwCallbackMouseButton(GLFWwindow *window, int button, int action, int mods); 
+
+    static void GlfwKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods); 
   private:
     static star::common::EventBus *m_deviceEventBus;
 };

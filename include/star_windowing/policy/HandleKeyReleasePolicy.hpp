@@ -1,24 +1,22 @@
 #pragma once
 
-#include "star_windowing/event/MouseMovement.hpp"
-
+#include <star_windowing/event/KeyRelease.hpp>
+#include <star_common/HandleTypeRegistry.hpp>
 #include <star_common/EventBus.hpp>
 #include <star_common/Handle.hpp>
-#include <star_common/HandleTypeRegistry.hpp>
-
 namespace star::windowing
 {
-template <typename T> class HandleMouseMovementPolicy
+template <typename T> class HandleKeyReleasePolicy
 {
   public:
-    HandleMouseMovementPolicy(T &me) : me(me)
+    HandleKeyReleasePolicy(T &me) : me(me)
     {
     }
-    virtual ~HandleMouseMovementPolicy() = default;
+    virtual ~HandleKeyReleasePolicy() = default;
 
     void init(common::EventBus &eventBus)
     {
-        registerListener(eventBus);
+        registerListener(eventBus); 
     }
 
   private:
@@ -28,19 +26,19 @@ template <typename T> class HandleMouseMovementPolicy
     void registerListener(common::EventBus &eventBus)
     {
         eventBus.subscribe(
-            common::HandleTypeRegistry::instance().registerType(event::GetMouseMovementEventTypeName),
-            common::SubscriberCallbackInfo{std::bind(&HandleMouseMovementPolicy<T>::eventCallback, this,
+            common::HandleTypeRegistry::instance().registerType(event::GetKeyReleaseEventTypeName),
+            common::SubscriberCallbackInfo{std::bind(&HandleKeyReleasePolicy<T>::eventCallback, this,
                                                      std::placeholders::_1, std::placeholders::_2),
-                                           std::bind(&HandleMouseMovementPolicy<T>::getHandleForEventBus, this),
-                                           std::bind(&HandleMouseMovementPolicy<T>::notificationFromEventBusOfDeletion,
+                                           std::bind(&HandleKeyReleasePolicy<T>::getHandleForEventBus, this),
+                                           std::bind(&HandleKeyReleasePolicy<T>::notificationFromEventBusOfDeletion,
                                                      this, std::placeholders::_1)});
     }
 
     void eventCallback(const common::IEvent &e, bool &keepAlive)
     {
-        const auto &event = static_cast<const event::MouseMovement &>(e);
+        const auto &event = static_cast<const event::KeyRelease &>(e);
 
-        me.onMouseMovement(event.getXPos(), event.getYPos());
+        me.onKeyRelease(event.getKey(), event.getScancode(), event.getMods());
 
         keepAlive = true;
     }
