@@ -85,10 +85,10 @@ class BasicCamera : public StarCamera,
     void onMouseButtonAction(const int &button, const int &action, const int &mods);
 
   private:
-    friend class HandleMouseMovementPolicy;
-    friend class HandleMouseButtonPolicy;
-    friend class HandleKeyPressPolicy;
-    friend class HandleKeyReleasePolicy;
+    friend class HandleMouseMovementPolicy<BasicCamera>;
+    friend class HandleMouseButtonPolicy<BasicCamera>;
+    friend class HandleKeyPressPolicy<BasicCamera>;
+    friend class HandleKeyReleasePolicy<BasicCamera>;
     Time time = Time();
 
     float movementSpeed = 1000.0f;
