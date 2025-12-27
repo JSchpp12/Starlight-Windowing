@@ -47,7 +47,6 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/HandleKeyReleasePolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/service/SwapChainControllerService.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/Swapchain.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/ListenForPrepForNextFramePolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/ListenForRequestForSwapChainPolicy.hpp
 )
 
@@ -72,7 +71,6 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/HandleMouseButtonPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/HandleKeyPressPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/HandleKeyReleasePolicy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/ListenForPrepForNextFramePolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/ListenForRequestForSwapChainPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/InteractivityBus.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/BasicCamera.cpp

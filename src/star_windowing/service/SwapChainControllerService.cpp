@@ -11,7 +11,7 @@ namespace star::windowing
 
 SwapChainControllerService::SwapChainControllerService(SwapChainControllerService &&other)
     : ListenForRequestForSwapChainPolicy<SwapChainControllerService>{*this},
-      ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this}, m_swapChain{std::move(other.m_swapChain)},
+      star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this}, m_swapChain{std::move(other.m_swapChain)},
       m_listenerHandle{}, m_winContext{std::move(other.m_winContext)},
       m_deviceEventBus{std::move(other.m_deviceEventBus)}, m_device{std::move(other.m_device)}
 {
@@ -45,7 +45,7 @@ SwapChainControllerService &SwapChainControllerService::operator=(SwapChainContr
 void SwapChainControllerService::cleanup(common::EventBus &eventBus)
 {
     ListenForRequestForSwapChainPolicy<SwapChainControllerService>::cleanup(eventBus);
-    ListenForPrepForNextFramePolicy<SwapChainControllerService>::cleanup(eventBus);
+    star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>::cleanup(eventBus);
 }
 
 void SwapChainControllerService::setInitParameters(star::service::InitParameters &params)
@@ -67,7 +67,7 @@ void SwapChainControllerService::init(const uint8_t &numFramesInFlight)
 void SwapChainControllerService::initListeners(common::EventBus &eventBus)
 {
     ListenForRequestForSwapChainPolicy<SwapChainControllerService>::init(eventBus);
-    ListenForPrepForNextFramePolicy<SwapChainControllerService>::init(eventBus);
+    star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>::init(eventBus);
 }
 
 void SwapChainControllerService::shutdown()

@@ -4,9 +4,10 @@
 #include "star_windowing/StarWindow.hpp"
 #include "star_windowing/WindowingContext.hpp"
 
-#include <memory>
 #include <starlight/core/renderer/DefaultRenderer.hpp>
 #include <vulkan/vulkan.hpp>
+
+#include <memory>
 
 namespace star::windowing
 {
@@ -65,18 +66,11 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     virtual star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 
-    // std::unique_ptr<ScreenshotBuffer> screenshotCommandBuffer = nullptr;
-    std::unique_ptr<std::string> screenshotPath = nullptr;
-
     vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) const;
 
     bool doesSwapChainSupportTransferOperations(core::device::DeviceContext &context) const;
 
     vk::Format getColorAttachmentFormat(core::device::DeviceContext &context) const override;
-
-    vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabilities);
-
-    // void prepareForSubmission(const int &frameIndexToBeDrawn);
 
     vk::Semaphore submitBuffer(StarCommandBuffer &buffer, const common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,

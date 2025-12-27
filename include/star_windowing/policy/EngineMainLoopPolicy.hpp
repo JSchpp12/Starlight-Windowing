@@ -18,11 +18,6 @@ class EngineMainLoopPolicy
     
     void frameUpdate();
 
-    bool shouldProgramExit() const
-    {
-        return false;
-    }
-
   private:
     WindowingContext &m_winContext;
 };

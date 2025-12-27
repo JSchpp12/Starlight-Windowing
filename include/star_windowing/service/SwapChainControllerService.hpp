@@ -3,23 +3,23 @@
 #include <star_common/HandleTypeRegistry.hpp>
 #include <star_windowing/Swapchain.hpp>
 #include <star_windowing/WindowingContext.hpp>
-#include <star_windowing/policy/ListenForPrepForNextFramePolicy.hpp>
+#include <starlight/policy/ListenForPrepForNextFramePolicy.hpp>
 #include <star_windowing/policy/ListenForRequestForSwapChainPolicy.hpp>
 #include <starlight/service/InitParameters.hpp>
 
 namespace star::windowing
 {
 class SwapChainControllerService : private ListenForRequestForSwapChainPolicy<SwapChainControllerService>,
-                                   private ListenForPrepForNextFramePolicy<SwapChainControllerService>
+                                   private star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>
 {
   public:
     SwapChainControllerService()
         : ListenForRequestForSwapChainPolicy<SwapChainControllerService>{*this},
-          ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this} {};
+          star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this} {};
 
     explicit SwapChainControllerService(WindowingContext &winContext)
         : ListenForRequestForSwapChainPolicy<SwapChainControllerService>{*this},
-          ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this}, m_swapChain{}, m_listenerHandle{},
+          star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this}, m_swapChain{}, m_listenerHandle{},
           m_winContext{&winContext}, m_deviceEventBus{nullptr} {};
 
     SwapChainControllerService(const SwapChainControllerService &) = delete;
@@ -44,7 +44,7 @@ class SwapChainControllerService : private ListenForRequestForSwapChainPolicy<Sw
     void prepForNextFrame(common::FrameTracker *frameTracker);
 
   private:
-    friend class ListenForPrepForNextFramePolicy<SwapChainControllerService>;
+    friend class star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>;
 
     SwapChain m_swapChain;
     Handle m_listenerHandle;
