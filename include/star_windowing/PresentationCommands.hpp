@@ -11,7 +11,6 @@ class PresentationCommands
   public:
     struct RecordDependencies
     {
-        vk::Semaphore mainGraphicsDoneSemaphore;
         uint32_t acquiredSwapChainImageIndex;
     };
     PresentationCommands() = default;
@@ -66,6 +65,6 @@ class PresentationCommands
 
     void registerListener(common::EventBus &context);
 
-    void submitPresentation(core::device::StarDevice &device);
+    void submitPresentation(core::device::StarDevice &device, const vk::Semaphore &finalDoneSemaphore);
 };
 } // namespace star::windowing

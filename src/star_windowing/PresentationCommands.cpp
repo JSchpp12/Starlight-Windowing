@@ -53,27 +53,37 @@ void PresentationCommands::registerListener(common::EventBus &eventBus)
 void PresentationCommands::eventCallback(const star::common::IEvent &e, bool &keepAlive)
 {
     const auto &event = static_cast<const event::RenderReadyForFinalization &>(e);
-    submitPresentation(event.getDevice());
+    submitPresentation(event.getDevice(), event.getFinalDoneSemaphore());
 
     keepAlive = true;
 }
 
-void PresentationCommands::submitPresentation(core::device::StarDevice &device)
+void PresentationCommands::submitPresentation(core::device::StarDevice &device, const vk::Semaphore &finalDoneSemaphore)
 {
     assert(m_recordDeps != nullptr);
 
     auto presentInfo = vk::PresentInfoKHR()
                            .setWaitSemaphoreCount(1)
-                           .setPWaitSemaphores(&m_recordDeps->mainGraphicsDoneSemaphore)
+                           .setPWaitSemaphores(&finalDoneSemaphore)
                            .setPImageIndices(&m_recordDeps->acquiredSwapChainImageIndex)
                            .setSwapchainCount(1)
                            .setPSwapchains(m_swapchain);
 
-    const auto presentResult = device.getDefaultQueue(star::Queue_Type::Tpresent).getVulkanQueue().presentKHR(presentInfo);
+    const auto presentResult =
+        device.getDefaultQueue(star::Queue_Type::Tpresent).getVulkanQueue().presentKHR(presentInfo);
 
-    if (presentResult != vk::Result::eSuccess){
-        throw std::runtime_error("failed"); 
+    if (presentResult != vk::Result::eSuccess)
+    {
+        throw std::runtime_error("failed");
     }
+
+    // todo eventually need to handle resizing
+    //  if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR ||
+    //      frameBufferResized)
+    //  {
+    //      frameBufferResized = false;
+    //      recreateSwapChain();
+    //  }
 }
 
 void PresentationCommands::notificationFromEventBusHandleDelete(const Handle &noLongerNeededSubscriberHandle)

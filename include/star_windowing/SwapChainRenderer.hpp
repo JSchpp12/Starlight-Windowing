@@ -14,11 +14,11 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 {
   public:
     SwapChainRenderer() = default;
-    SwapChainRenderer(WindowingContext *winContext, core::device::DeviceContext &context,
+    SwapChainRenderer(WindowingContext *winContext, vk::SwapchainKHR swapChain, core::device::DeviceContext &context,
                       const uint8_t &numFramesInFlight, std::vector<std::shared_ptr<StarObject>> objects,
                       std::shared_ptr<std::vector<Light>> lights, std::shared_ptr<StarCamera> camera);
 
-    SwapChainRenderer(WindowingContext *winContext, core::device::DeviceContext &context,
+    SwapChainRenderer(WindowingContext *winContext, vk::SwapchainKHR swapchain, core::device::DeviceContext &context,
                       const uint8_t &numFramesInFlight, std::vector<std::shared_ptr<StarObject>> objects,
                       std::shared_ptr<ManagerController::RenderResource::Buffer> lightData,
                       std::shared_ptr<ManagerController::RenderResource::Buffer> lightListData,
@@ -30,14 +30,12 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     SwapChainRenderer(SwapChainRenderer &&);
     SwapChainRenderer &operator=(SwapChainRenderer &&);
 
-    virtual void prepRender(common::IDeviceContext &device, const uint8_t &numFramesInFlight) override;
+    virtual void prepRender(common::IDeviceContext &device) override;
 
     virtual void cleanupRender(common::IDeviceContext &device) override;
 
-    virtual void frameUpdate(common::IDeviceContext &context, const uint8_t &frameInFlightIndex) override;
+    virtual void frameUpdate(common::IDeviceContext &context) override;
 
-    void submitPresentation(const int &frameIndexToBeDrawn, const vk::Semaphore *mainGraphicsDoneSemaphore);
-    
     std::vector<Handle> &getDoneSemaphores()
     {
         return imageAvailableSemaphores;
@@ -50,8 +48,8 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
   protected:
     WindowingContext *m_winContext = nullptr;
     core::device::DeviceContext *device = nullptr;
-    vk::SwapchainKHR swapChain;
-    PresentationCommands::RecordDependencies m_presentationSharedDeps; 
+    vk::SwapchainKHR m_swapChain;
+    PresentationCommands::RecordDependencies m_presentationSharedDeps;
     PresentationCommands m_presentationCommands;
 
     // tracker for which frame is being processed of the available permitted frames
@@ -61,8 +59,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
         false; // explicit declaration of resize, used if driver does not trigger VK_ERROR_OUT_OF_DATE
 
     // Sync obj storage
-    std::vector<Handle> inFlightFences, imagesInFlight;
-    std::vector<Handle> imageAvailableSemaphores, imageAcquireSemaphores;
+    std::vector<Handle> imageAvailableSemaphores;
     std::vector<Handle> graphicsDoneSemaphoresExternalUse; /// These are guaranteed to match with the current frame in
                                                            /// flight for other command buffers to reference
 
@@ -77,14 +74,11 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     vk::Format getColorAttachmentFormat(core::device::DeviceContext &context) const override;
 
-    // Look through givent present modes and pick the "best" one
-    vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR> &availablePresentModes);
-
     vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabilities);
 
-    void prepareForSubmission(const int &frameIndexToBeDrawn);
+    // void prepareForSubmission(const int &frameIndexToBeDrawn);
 
-    vk::Semaphore submitBuffer(StarCommandBuffer &buffer, const int &frameIndexToBeDrawn,
+    vk::Semaphore submitBuffer(StarCommandBuffer &buffer, const common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
                                std::vector<vk::Semaphore> dataSemaphores,
                                std::vector<vk::PipelineStageFlags> dataWaitPoints,
@@ -94,9 +88,9 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
                                                                     const uint8_t &numFramesInFlight) override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(
-        const uint8_t &frameInFlightIndex) override;
+        const common::FrameTracker &frameTracker) override;
 
-    virtual void recordCommandBuffer(vk::CommandBuffer &buffer, const uint8_t &frameIndexToBeDrawn,
+    virtual void recordCommandBuffer(vk::CommandBuffer &buffer, const common::FrameTracker &frameTracker,
                                      const uint64_t &frameIndex) override;
 
     /// <summary>
@@ -104,35 +98,17 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     /// </summary>
     virtual void recreateSwapChain();
 
-    void cleanupSwapChain(core::device::DeviceContext &context);
-
     /// <summary>
     /// Create semaphores that are going to be used to sync rendering and presentation queues
     /// </summary>
     static std::vector<Handle> CreateSemaphores(core::device::DeviceContext &context, const uint8_t &numToCreate,
                                                 const bool &isTimeline);
 
-    /// <summary>
-    /// Fences are needed for CPU-GPU sync. Creates these required objects
-    /// </summary>
-    void createFences(core::device::DeviceContext &context);
-
-    /// <summary>
-    /// Create tracking information in order to link fences with the swap chain images using
-    /// </summary>
-    void createFenceImageTracking();
-
-    /// <summary>
-    /// Create a swap chain that will be used in rendering images
-    /// </summary>
-    void createSwapChain(core::device::DeviceContext &context);
-
     void prepareRenderingContext(core::device::DeviceContext &context);
 
     void addSemaphoresToRenderingContext(core::device::DeviceContext &context);
 
-    void addFencesToRenderingContext(core::device::DeviceContext &context);
-
-    std::vector<vk::ImageMemoryBarrier2> getImageBarriersForThisFrame();
+    std::vector<vk::ImageMemoryBarrier2> getImageBarriersForThisFrame(
+        const common::FrameTracker &frameTracker);
 };
 } // namespace star::windowing

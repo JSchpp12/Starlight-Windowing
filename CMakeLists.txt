@@ -38,12 +38,17 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/event/MouseButton.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/event/MouseMovement.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/event/Scroll.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/event/RequestSwapChainFromService.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/HandleMouseMovementPolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/HandleMouseButtonPolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/HandleKeyPressPolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/InteractivityBus.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/BasicCamera.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/HandleKeyReleasePolicy.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/service/SwapChainControllerService.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/Swapchain.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/ListenForPrepForNextFramePolicy.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/ListenForRequestForSwapChainPolicy.hpp
 )
 
 set(${PROJECT_NAME}_SOURCES 
@@ -62,12 +67,17 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/event/MouseButton.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/event/MouseMovement.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/event/Scroll.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/event/RequestSwapChainFromService.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/HandleMouseMovementPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/HandleMouseButtonPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/HandleKeyPressPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/HandleKeyReleasePolicy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/ListenForPrepForNextFramePolicy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/ListenForRequestForSwapChainPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/InteractivityBus.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/BasicCamera.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/service/SwapChainControllerService.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/Swapchain.cpp
 )
 
 add_library(${PROJECT_NAME} ${LIBTYPE}

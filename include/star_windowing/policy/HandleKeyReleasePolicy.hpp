@@ -4,6 +4,7 @@
 #include <star_common/HandleTypeRegistry.hpp>
 #include <star_common/EventBus.hpp>
 #include <star_common/Handle.hpp>
+
 namespace star::windowing
 {
 template <typename T> class HandleKeyReleasePolicy
