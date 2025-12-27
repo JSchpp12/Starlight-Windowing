@@ -24,11 +24,11 @@ class EngineInitPolicy
     core::device::StarDevice createNewDevice(core::RenderingInstance &renderingInstance,
                                              std::set<star::Rendering_Features> &engineRenderingFeatures,
                                              std::set<Rendering_Device_Features> &engineRenderingDeviceFeatures);
-    vk::Extent2D getEngineRenderingResolution() const;
+    vk::Extent2D getEngineRenderingResolution();
 
     common::FrameTracker::Setup getFrameInFlightTrackingSetup(core::device::StarDevice &device);
 
-    void cleanup(vk::Instance);
+    void cleanup(core::RenderingInstance &instance);
 
     void init(uint8_t requestedNumFramesInFlight);
 

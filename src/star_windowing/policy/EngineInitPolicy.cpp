@@ -22,10 +22,10 @@ core::RenderingInstance EngineInitPolicy::createRenderingInstance(std::string ap
     return instance;
 }
 
-void EngineInitPolicy::cleanup(vk::Instance instance)
+void EngineInitPolicy::cleanup(core::RenderingInstance &instance)
 {
     m_winContext.window.cleanupRender();
-    m_winContext.surface.cleanupRender(instance);
+    m_winContext.surface.cleanupRender(instance.getVulkanInstance());
 }
 
 core::device::StarDevice EngineInitPolicy::createNewDevice(
@@ -45,7 +45,7 @@ RenderingSurface EngineInitPolicy::createRenderingSurface(vk::Instance instance,
     return surface;
 }
 
-vk::Extent2D EngineInitPolicy::getEngineRenderingResolution() const
+vk::Extent2D EngineInitPolicy::getEngineRenderingResolution()
 {
     return m_winContext.window.getWindowFramebufferSize();
 }
@@ -99,9 +99,8 @@ void EngineInitPolicy::getNumSupportedSwapchainImages(core::device::StarDevice &
     max = (uint8_t)result.surfaceCapabilities.maxImageCount;
 }
 
-service::Service EngineInitPolicy::createSwapchainService(){
-    return service::Service{
-        SwapChainControllerService{m_winContext}
-    };
+service::Service EngineInitPolicy::createSwapchainService()
+{
+    return service::Service{SwapChainControllerService{m_winContext}};
 }
 } // namespace star::windowing
