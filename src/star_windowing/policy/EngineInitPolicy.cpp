@@ -34,7 +34,7 @@ core::device::StarDevice EngineInitPolicy::createNewDevice(
 {
     vk::SurfaceKHR vkSurface = m_winContext.surface.getVulkanSurface();
     return core::device::StarDevice(renderingInstance, engineRenderingFeatures, engineRenderingDeviceFeatures,
-                                    &vkSurface);
+                                    {VK_KHR_SWAPCHAIN_EXTENSION_NAME}, &vkSurface);
 }
 
 RenderingSurface EngineInitPolicy::createRenderingSurface(vk::Instance instance, StarWindow &window) const
