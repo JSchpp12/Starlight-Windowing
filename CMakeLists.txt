@@ -13,7 +13,7 @@ if(STARLIGHT_WINDOWING_BUILD_SHARED)
 endif()
 
 find_package(starlight_common CONFIG REQUIRED)
-if(NOT TARGET starlight)
+if(NOT TARGET Starlight::starlight)
     # Fallback: when building windowing standalone, use the installed/config package
     find_package(starlight CONFIG REQUIRED)
 endif()
@@ -85,13 +85,13 @@ add_library(${PROJECT_NAME} ${LIBTYPE}
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC 
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
 )
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
-    starlight
+    Starlight::starlight
     starlight_common
     PRIVATE 
     glfw
