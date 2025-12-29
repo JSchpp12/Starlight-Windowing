@@ -83,6 +83,7 @@ void SwapChainControllerService::prepForNextFrame(common::FrameTracker *frameTra
     assert(m_device != nullptr && m_deviceFrameTracker != nullptr);
     // increment frame in flight index before handling next render to target image
     frameTracker->getCurrent().setFrameInFlightIndex(incrementNextFrameInFlight(*frameTracker));
+    frameTracker->triggerIncrementForCurrentFrame();
     frameTracker->getCurrent().setFinalTargetImageIndex(incrementNextSwapChainImage(*frameTracker));
 }
 

@@ -211,7 +211,10 @@ void SwapChain::gatherSwapchainDependencies(core::device::StarDevice &device, vk
     {
         doesSupportTransfer = true;
     }
-    doesSupportTransfer = false;
+    else
+    {
+        doesSupportTransfer = false;
+    }
 }
 
 vk::Extent2D SwapChain::chooseSwapChainExtent(const vk::SurfaceCapabilities2KHR &caps) const
