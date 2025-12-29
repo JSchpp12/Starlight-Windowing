@@ -1,6 +1,8 @@
 #pragma once
 
 #include <star_common/IEvent.hpp>
+#include <string_view>
+
 namespace star::windowing::event
 {
 constexpr std::string_view GetMouseButtonEventTypeName = "star::win::MouseButton";

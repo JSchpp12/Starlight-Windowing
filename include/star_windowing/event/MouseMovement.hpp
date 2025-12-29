@@ -1,6 +1,7 @@
 #pragma once
 
 #include <star_common/IEvent.hpp>
+#include <string_view>
 
 namespace star::windowing::event
 {

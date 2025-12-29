@@ -1,10 +1,11 @@
 #pragma once
 
 #include <star_common/IEvent.hpp>
+#include <string_view>
 
 namespace star::windowing::event
 {
-constexpr std::string_view GetKeyReleaseEventTypeName = "star::windowing::keyrelease";
+inline constexpr std::string_view GetKeyReleaseEventTypeName = "star::windowing::keyrelease";
 class KeyRelease : public common::IEvent
 {
   public:

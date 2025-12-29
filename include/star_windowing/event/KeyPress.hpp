@@ -2,6 +2,7 @@
 
 #include <star_common/IEvent.hpp>
 
+#include <string_view>
 namespace star::windowing::event
 {
 constexpr std::string_view GetKeyPressedEventTypeName = "star::windowing::event::keypress";

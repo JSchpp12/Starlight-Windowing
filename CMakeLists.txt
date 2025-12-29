@@ -99,3 +99,5 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLFW_INCLUDE_VULKAN)
+
+add_library(Starlight::windowing ALIAS ${PROJECT_NAME})
