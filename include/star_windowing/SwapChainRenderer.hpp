@@ -84,7 +84,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(
         const common::FrameTracker &frameTracker) override;
 
-    virtual void recordCommandBuffer(vk::CommandBuffer &buffer, const common::FrameTracker &frameTracker,
+    virtual void recordCommandBuffer(star::StarCommandBuffer &buffer, const common::FrameTracker &frameTracker,
                                      const uint64_t &frameIndex) override;
 
     /// <summary>

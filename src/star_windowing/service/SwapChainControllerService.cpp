@@ -2,6 +2,7 @@
 
 #include <star_common/HandleTypeRegistry.hpp>
 #include <starlight/event/PrepForNextFrame.hpp>
+#include <starlight/core/Exceptions.hpp>
 
 #include <cassert>
 #include <functional>
@@ -78,13 +79,15 @@ void SwapChainControllerService::shutdown()
     m_swapChain.cleanupRender(*m_device);
 }
 
-void SwapChainControllerService::prepForNextFrame(common::FrameTracker *frameTracker)
+void SwapChainControllerService::onPrepForNextFrame(const star::event::PrepForNextFrame &event, bool &keepAlive)
 {
     assert(m_device != nullptr && m_deviceFrameTracker != nullptr);
+    auto *frameTracker = event.getFrameTracker();
     // increment frame in flight index before handling next render to target image
     frameTracker->getCurrent().setFrameInFlightIndex(incrementNextFrameInFlight(*frameTracker));
-    frameTracker->triggerIncrementForCurrentFrame();
     frameTracker->getCurrent().setFinalTargetImageIndex(incrementNextSwapChainImage(*frameTracker));
+
+    keepAlive = true;
 }
 
 uint8_t SwapChainControllerService::incrementNextSwapChainImage(const common::FrameTracker &frameTracker)
@@ -93,11 +96,11 @@ uint8_t SwapChainControllerService::incrementNextSwapChainImage(const common::Fr
 
     if (aResult.result == vk::Result::eErrorOutOfDateKHR)
     {
-        throw std::runtime_error("Swapchain is out of date and support for recreation is not implemented");
+        STAR_THROW("Swapchain is out of date and support for recreation is not implemented");
     }
     else if (aResult.result != vk::Result::eSuccess && aResult.result != vk::Result::eSuboptimalKHR)
     {
-        throw std::runtime_error("Failed to acquire swapchain image due to suboptimal khr layout");
+        STAR_THROW("Failed to acquire swapchain image due to suboptimal khr layout");
     }
 
     return static_cast<uint8_t>(aResult.value);

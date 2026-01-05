@@ -41,7 +41,7 @@ class SwapChainControllerService : private ListenForRequestForSwapChainPolicy<Sw
         return m_swapChain.getVulkanSwapchain();
     }
   protected:
-    void prepForNextFrame(common::FrameTracker *frameTracker);
+    void onPrepForNextFrame(const star::event::PrepForNextFrame &event, bool &keepAlive);
 
   private:
     friend class star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>;

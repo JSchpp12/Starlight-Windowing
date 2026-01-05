@@ -4,6 +4,7 @@
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
+#include <starlight/core/Exceptions.hpp>
 
 #include <GLFW/glfw3.h>
 
@@ -209,7 +210,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
                                                           .submit(1, &submitInfo, fence));
     if (*commandResult != vk::Result::eSuccess)
     {
-        throw std::runtime_error("Failed to submit command buffer");
+        STAR_THROW("Failed to submit command buffer");
     }
 
     m_presentationSharedDeps.acquiredSwapChainImageIndex = frameTracker.getCurrent().getFinalTargetImageIndex();
@@ -309,10 +310,11 @@ vk::RenderingAttachmentInfo star::windowing::SwapChainRenderer::prepareDynamicRe
     return colorAttachmentInfo;
 }
 
-void star::windowing::SwapChainRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer,
+void star::windowing::SwapChainRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                                              const common::FrameTracker &frameTracker,
                                                              const uint64_t &frameIndex)
 {
+    commandBuffer.begin(frameTracker.getCurrent().getFrameInFlight())
     auto barriers = getImageBarriersForThisFrame(frameTracker);
     uint32_t numBarriers;
     common::helper::SafeCast<size_t, uint32_t>(barriers.size(), numBarriers);
@@ -336,7 +338,7 @@ std::vector<star::Handle> star::windowing::SwapChainRenderer::CreateSemaphores(
 
         if (!semaphores[i].isInitialized())
         {
-            throw std::runtime_error("failed to create semaphores for a frame");
+            STAR_THROW("failed to create semaphores for a frame");
         }
     }
 
