@@ -2,9 +2,9 @@
 
 #include <star_common/HandleTypeRegistry.hpp>
 #include <starlight/common/ConfigFile.hpp>
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
-#include <starlight/core/Exceptions.hpp>
 
 #include <GLFW/glfw3.h>
 
@@ -152,13 +152,10 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     std::vector<vk::Semaphore> *previousCommandBufferSemaphores, std::vector<vk::Semaphore> dataSemaphores,
     std::vector<vk::PipelineStageFlags> dataWaitPoints, std::vector<std::optional<uint64_t>> previousSignaledValues)
 {
-    size_t frameIndex = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    const size_t &frameIndex = static_cast<const size_t &>(frameTracker.getCurrent().getFrameInFlightIndex());
 
     std::vector<vk::Semaphore> waitSemaphores = {*m_winContext->syncInfo.swapChainAcquireSemaphore};
     std::vector<vk::PipelineStageFlags> waitStages = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
-
-    std::vector<vk::Semaphore> waitTimelines;
-    std::vector<uint64_t> waitTimelinesValues;
 
     if (previousCommandBufferSemaphores != nullptr)
     {
@@ -169,18 +166,21 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
         }
     }
 
+    std::vector<uint64_t> waitSemaphoreValues =
+        std::vector<uint64_t>(waitSemaphores.size() + dataSemaphores.size(), 0);
+
     assert(dataSemaphores.size() == dataWaitPoints.size());
-    for (size_t i = 0; i < dataSemaphores.size(); i++)
     {
-        if (previousSignaledValues[i].has_value())
-        {
-            waitTimelines.push_back(dataSemaphores[i]);
-            waitTimelinesValues.push_back(previousSignaledValues[i].value());
-        }
-        else
+        const size_t startIndex = waitSemaphores.size();
+        for (size_t i = 0; i < dataSemaphores.size(); i++)
         {
             waitSemaphores.push_back(dataSemaphores[i]);
             waitStages.push_back(dataWaitPoints[i]);
+            
+            if (previousSignaledValues[i].has_value())
+            {
+                waitSemaphoreValues[startIndex + i] = previousSignaledValues[i].value();
+            }
         }
     }
 
@@ -192,15 +192,19 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     assert(signalSemaphore != nullptr &&
            "Signal semaphore was not properly added to the rendering context before record");
 
-    vk::SubmitInfo submitInfo{};
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores.data();
-    submitInfo.waitSemaphoreCount = waitSemaphoreCount;
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphore;
-    submitInfo.pWaitDstStageMask = waitStages.data();
-    submitInfo.pCommandBuffers = &buffer.buffer(frameIndex);
-    submitInfo.commandBufferCount = 1;
+    const vk::TimelineSemaphoreSubmitInfo timeSubmit = vk::TimelineSemaphoreSubmitInfo()
+                                                           .setWaitSemaphoreValues(waitSemaphoreValues)
+                                                           .setPSignalSemaphoreValues(nullptr);
+
+    const vk::SubmitInfo submitInfo = vk::SubmitInfo()
+                                          .setCommandBufferCount(1)
+                                          .setPWaitSemaphores(waitSemaphores.data())
+                                          .setWaitSemaphoreCount(waitSemaphoreCount)
+                                          .setPCommandBuffers(&buffer.buffer(frameIndex))
+                                          .setPWaitDstStageMask(waitStages.data())
+                                          .setPSignalSemaphores(signalSemaphore)
+                                          .setSignalSemaphoreCount(1)
+                                          .setPNext(&timeSubmit);
 
     assert(m_winContext->syncInfo.imageAvailableFence != nullptr);
     const vk::Fence &fence = *m_winContext->syncInfo.imageAvailableFence;
@@ -314,15 +318,19 @@ void star::windowing::SwapChainRenderer::recordCommandBuffer(star::StarCommandBu
                                                              const common::FrameTracker &frameTracker,
                                                              const uint64_t &frameIndex)
 {
-    commandBuffer.begin(frameTracker.getCurrent().getFrameInFlight())
+    commandBuffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
     auto barriers = getImageBarriersForThisFrame(frameTracker);
     uint32_t numBarriers;
     common::helper::SafeCast<size_t, uint32_t>(barriers.size(), numBarriers);
 
-    commandBuffer.pipelineBarrier2(
-        vk::DependencyInfo().setImageMemoryBarrierCount(numBarriers).setPImageMemoryBarriers(barriers.data()));
+    commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex())
+        .pipelineBarrier2(
+            vk::DependencyInfo().setImageMemoryBarrierCount(numBarriers).setPImageMemoryBarriers(barriers.data()));
 
-    this->DefaultRenderer::recordCommandBuffer(commandBuffer, frameTracker, frameIndex);
+    this->DefaultRenderer::recordCommands(commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()),
+                                          frameTracker, frameIndex);
+
+    commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()).end();
 }
 
 std::vector<star::Handle> star::windowing::SwapChainRenderer::CreateSemaphores(
