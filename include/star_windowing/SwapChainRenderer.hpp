@@ -51,6 +51,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     core::device::DeviceContext *device = nullptr;
     vk::SwapchainKHR m_swapChain;
     PresentationCommands::RecordDependencies m_presentationSharedDeps;
+    StarQueue* m_presentationQueueToUse = nullptr; 
     PresentationCommands m_presentationCommands;
 
     // tracker for which frame is being processed of the available permitted frames

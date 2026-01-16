@@ -14,12 +14,12 @@ class PresentationCommands
         uint32_t acquiredSwapChainImageIndex;
     };
     PresentationCommands() = default;
-
     PresentationCommands(const PresentationCommands &) = delete;
     PresentationCommands &operator=(const PresentationCommands &) = delete;
     PresentationCommands(PresentationCommands &&other)
         : m_listener(std::move(other.m_listener)), m_recordDeps(other.m_recordDeps), m_swapchain(other.m_swapchain),
-          m_deviceEventBus(std::move(other.m_deviceEventBus))
+          m_deviceEventBus(std::move(other.m_deviceEventBus)),
+          m_swapchainPresentationQueue(other.m_swapchainPresentationQueue)
     {
         if (m_deviceEventBus != nullptr)
         {
@@ -34,6 +34,7 @@ class PresentationCommands
             m_recordDeps = other.m_recordDeps;
             m_swapchain = other.m_swapchain;
             m_deviceEventBus = other.m_deviceEventBus;
+            m_swapchainPresentationQueue = other.m_swapchainPresentationQueue;
 
             if (m_deviceEventBus != nullptr)
             {
@@ -45,7 +46,7 @@ class PresentationCommands
     }
     ~PresentationCommands() = default;
 
-    void init(RecordDependencies *recordDeps, vk::SwapchainKHR *swapchain);
+    void init(RecordDependencies *recordDeps, vk::SwapchainKHR *swapchain, StarQueue *swapchainPresentationQueue);
 
     void prepRender(core::device::DeviceContext &context);
 
@@ -54,11 +55,13 @@ class PresentationCommands
     RecordDependencies *m_recordDeps = nullptr;
     vk::SwapchainKHR *m_swapchain = nullptr;
     common::EventBus *m_deviceEventBus = nullptr;
+    StarQueue *m_swapchainPresentationQueue = nullptr;
 
     void eventCallback(const star::common::IEvent &e, bool &keepAlive);
 
-    Handle *getHandleForUpdate(){
-      return &m_listener;
+    Handle *getHandleForUpdate()
+    {
+        return &m_listener;
     }
 
     void notificationFromEventBusHandleDelete(const Handle &noLongerNeededSubscriberHandle);

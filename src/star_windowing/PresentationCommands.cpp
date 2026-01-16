@@ -1,14 +1,18 @@
 #include "star_windowing/PresentationCommands.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
+#include <starlight/core/Exceptions.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/event/RenderReadyForFinalization.hpp>
 
 namespace star::windowing
 {
-void PresentationCommands::init(RecordDependencies *recordDeps, vk::SwapchainKHR *swapchain)
+void PresentationCommands::init(RecordDependencies *recordDeps, vk::SwapchainKHR *swapchain,
+                                StarQueue *swapchainPresentationQueue)
 {
     m_recordDeps = recordDeps;
     m_swapchain = swapchain;
+    m_swapchainPresentationQueue = swapchainPresentationQueue;
 }
 
 void PresentationCommands::prepRender(core::device::DeviceContext &context)
@@ -69,12 +73,11 @@ void PresentationCommands::submitPresentation(core::device::StarDevice &device, 
                            .setSwapchainCount(1)
                            .setPSwapchains(m_swapchain);
 
-    const auto presentResult =
-        device.getDefaultQueue(star::Queue_Type::Tpresent).getVulkanQueue().presentKHR(presentInfo);
+    const auto presentResult = m_swapchainPresentationQueue->getVulkanQueue().presentKHR(presentInfo);
 
     if (presentResult != vk::Result::eSuccess)
     {
-        throw std::runtime_error("failed");
+        STAR_THROW("Failed to submit presentation");
     }
 
     // todo eventually need to handle resizing

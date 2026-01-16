@@ -11,11 +11,10 @@ namespace star::windowing
 class EngineMainLoopPolicy
 {
   public:
-    explicit EngineMainLoopPolicy(WindowingContext &winContext)
-        : m_winContext(winContext)
+    explicit EngineMainLoopPolicy(WindowingContext &winContext) : m_winContext(winContext)
     {
     }
-    
+
     void frameUpdate();
 
   private:

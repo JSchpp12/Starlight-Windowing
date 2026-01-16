@@ -5,6 +5,8 @@
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
+#include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 #include <GLFW/glfw3.h>
 
@@ -37,9 +39,10 @@ star::windowing::SwapChainRenderer::SwapChainRenderer(SwapChainRenderer &&other)
     : DefaultRenderer(std::move(other)), m_winContext(other.m_winContext), m_swapChain(std::move(other.m_swapChain)),
       device(other.device), numFramesInFlight(std::move(other.numFramesInFlight)),
       m_presentationSharedDeps(std::move(other.m_presentationSharedDeps)),
-      m_presentationCommands(std::move(other.m_presentationCommands))
+      m_presentationCommands(std::move(other.m_presentationCommands)),
+      m_presentationQueueToUse(std::move(other.m_presentationQueueToUse))
 {
-    m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain);
+    m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain, m_presentationQueueToUse);
 }
 
 star::windowing::SwapChainRenderer &star::windowing::SwapChainRenderer::operator=(SwapChainRenderer &&other)
@@ -53,29 +56,34 @@ star::windowing::SwapChainRenderer &star::windowing::SwapChainRenderer::operator
         m_swapChain = other.m_swapChain;
         m_presentationSharedDeps = std::move(other.m_presentationSharedDeps);
         m_presentationCommands = std::move(other.m_presentationCommands);
+        m_presentationQueueToUse = std::move(other.m_presentationQueueToUse);
 
-        m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain);
+        m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain, m_presentationQueueToUse);
     }
 
     return *this;
 }
 
-void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &context)
+void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
 {
-    DefaultRenderer::prepRender(context);
+    auto &context = static_cast<core::device::DeviceContext &>(c);
+    const size_t numSwapChainImages = context.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain).size();
 
-    auto &c = static_cast<core::device::DeviceContext &>(context);
-    const size_t numSwapChainImages = c.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain).size();
+    this->imageAvailableSemaphores = CreateSemaphores(
+        context, context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization(), false);
 
-    this->imageAvailableSemaphores =
-        CreateSemaphores(c, c.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization(), false);
+    m_presentationQueueToUse = core::helper::GetEngineDefaultQueue(
+        context.getEventBus(), context.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
 
-    // this->createFences(c);
-    // this->createFenceImageTracking();
+    if (m_presentationQueueToUse == nullptr)
+    {
+        STAR_THROW("Failed to acquire a presentation queue from engine");
+    }
 
-    m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain);
+    m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain, m_presentationQueueToUse);
+    m_presentationCommands.prepRender(context);
 
-    m_presentationCommands.prepRender(c);
+    DefaultRenderer::prepRender(c);
 }
 
 void star::windowing::SwapChainRenderer::cleanupRender(common::IDeviceContext &context)
@@ -152,6 +160,8 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     std::vector<vk::Semaphore> *previousCommandBufferSemaphores, std::vector<vk::Semaphore> dataSemaphores,
     std::vector<vk::PipelineStageFlags> dataWaitPoints, std::vector<std::optional<uint64_t>> previousSignaledValues)
 {
+    assert(m_presentationQueueToUse != nullptr); 
+
     const size_t &frameIndex = static_cast<const size_t &>(frameTracker.getCurrent().getFrameInFlightIndex());
 
     std::vector<vk::Semaphore> waitSemaphores = {*m_winContext->syncInfo.swapChainAcquireSemaphore};
@@ -166,8 +176,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
         }
     }
 
-    std::vector<uint64_t> waitSemaphoreValues =
-        std::vector<uint64_t>(waitSemaphores.size() + dataSemaphores.size(), 0);
+    std::vector<uint64_t> waitSemaphoreValues = std::vector<uint64_t>(waitSemaphores.size() + dataSemaphores.size(), 0);
 
     assert(dataSemaphores.size() == dataWaitPoints.size());
     {
@@ -176,7 +185,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
         {
             waitSemaphores.push_back(dataSemaphores[i]);
             waitStages.push_back(dataWaitPoints[i]);
-            
+
             if (previousSignaledValues[i].has_value())
             {
                 waitSemaphoreValues[startIndex + i] = previousSignaledValues[i].value();
@@ -208,10 +217,8 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
 
     assert(m_winContext->syncInfo.imageAvailableFence != nullptr);
     const vk::Fence &fence = *m_winContext->syncInfo.imageAvailableFence;
-    auto commandResult = std::make_unique<vk::Result>(this->device->getDevice()
-                                                          .getDefaultQueue(star::Queue_Type::Tpresent)
-                                                          .getVulkanQueue()
-                                                          .submit(1, &submitInfo, fence));
+    auto commandResult =
+        std::make_unique<vk::Result>(m_presentationQueueToUse->getVulkanQueue().submit(1, &submitInfo, fence));
     if (*commandResult != vk::Result::eSuccess)
     {
         STAR_THROW("Failed to submit command buffer");
@@ -228,6 +235,8 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
 std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::createRenderToImages(
     star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight)
 {
+    assert(m_presentationQueueToUse != nullptr); 
+
     std::vector<StarTextures::Texture> newRenderToImages = std::vector<StarTextures::Texture>();
     const vk::Extent2D winResolution = m_winContext->window.getWindowFramebufferSize();
     const vk::Extent3D resolution =
@@ -260,7 +269,9 @@ std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::cre
         // vk::AccessFlagBits::eNone, vk::AccessFlagBits::eColorAttachmentWrite,
         // vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput);
         // device->endSingleTimeCommands(buffer);
-        auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
+        auto oneTimeSetup = core::helper::BeginSingleTimeCommands(
+            device.getDevice(), device.getEventBus(), device.getGraphicsManagers().commandPoolManager,
+            device.getManagerCommandBuffer().m_manager, star::Queue_Type::Tpresent);
 
         vk::ImageMemoryBarrier2 barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier2;
@@ -281,7 +292,7 @@ std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::cre
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
 
-        oneTimeSetup->buffer().pipelineBarrier2(
+        oneTimeSetup.buffer().pipelineBarrier2(
             vk::DependencyInfo().setPImageMemoryBarriers(&barrier).setImageMemoryBarrierCount(1));
 
         // oneTimeSetup->buffer().pipelineBarrier(
@@ -292,7 +303,7 @@ std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::cre
         //                                                        // wait on the barrier
         //     {}, {}, nullptr, barrier);
 
-        device.getDevice().endSingleTimeCommands(std::move(oneTimeSetup));
+        core::helper::EndSingleTimeCommands(*m_presentationQueueToUse, std::move(oneTimeSetup));
     }
 
     return newRenderToImages;

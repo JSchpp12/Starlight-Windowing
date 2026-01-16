@@ -1,9 +1,11 @@
 #include "star_windowing/Swapchain.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/managers/Fence.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 #include <cassert>
 #include <stdexcept>
@@ -16,7 +18,7 @@ void WaitForFence(core::device::StarDevice &device, vk::Fence &fence)
 
     if (result != vk::Result::eSuccess)
     {
-        throw std::runtime_error("Failed to wait for fence");
+        STAR_THROW("Failed to wait for fence");
     }
 }
 
@@ -25,7 +27,7 @@ void ResetFence(core::device::StarDevice &device, vk::Fence &fence)
     const vk::Result result = device.getVulkanDevice().resetFences(1, &fence);
     if (result != vk::Result::eSuccess)
     {
-        throw std::runtime_error("Failed to reset fences");
+        STAR_THROW("Failed to reset fences");
     }
 }
 
@@ -43,7 +45,7 @@ void CreateFences(common::EventBus &eventBus, const size_t &numToCreate, std::ve
             core::device::manager::FenceRequest{true}, newHandles[i], &r));
         if (r == nullptr)
         {
-            throw std::runtime_error("Manager did not provide fence");
+            STAR_THROW("Failed to acquire new fences to use from engine");
         }
         newFences[i] = &static_cast<core::device::manager::FenceRecord *>(r)->fence;
     }
@@ -65,7 +67,7 @@ void CreateSemaphores(common::EventBus &eventBus, const size_t &numToCreate, std
 
         if (r == nullptr)
         {
-            throw std::runtime_error("Manager did not provide semaphore");
+            STAR_THROW("Failed to acquire semaphore from engine");
         }
         newSemaphores[i] = &static_cast<core::device::manager::SemaphoreRecord *>(r)->semaphore;
     }
@@ -149,7 +151,7 @@ vk::SwapchainKHR SwapChain::createSwapchain(core::device::StarDevice &device, co
     bool doesSupportTransfer{false};
     gatherSwapchainDependencies(device, resolution, format, presentMode, transform, numImages, doesSupportTransfer);
 
-    std::vector<uint32_t> queueFamilyIndices = device.getQueueOwnershipTracker().getAllQueueFamilyIndices();
+    std::vector<uint32_t> queueFamilyIndices; 
 
     vk::SwapchainCreateInfoKHR createInfo =
         vk::SwapchainCreateInfoKHR()
@@ -245,7 +247,7 @@ vk::SurfaceFormatKHR SwapChain::chooseSurfaceFormat(const core::SwapChainSupport
 
     if (supportDetails.formats.empty())
     {
-        throw std::runtime_error("Failed to get any available formats for swapchain images");
+        STAR_THROW("Failed to get any available formats to use for swapchain images");
     }
 
     // if nothing matches what we are looking for, just take what is available
