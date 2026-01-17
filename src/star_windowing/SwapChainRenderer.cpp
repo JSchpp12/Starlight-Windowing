@@ -160,7 +160,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     std::vector<vk::Semaphore> *previousCommandBufferSemaphores, std::vector<vk::Semaphore> dataSemaphores,
     std::vector<vk::PipelineStageFlags> dataWaitPoints, std::vector<std::optional<uint64_t>> previousSignaledValues)
 {
-    assert(m_presentationQueueToUse != nullptr); 
+    assert(m_presentationQueueToUse != nullptr);
 
     const size_t &frameIndex = static_cast<const size_t &>(frameTracker.getCurrent().getFrameInFlightIndex());
 
@@ -235,7 +235,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
 std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::createRenderToImages(
     star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight)
 {
-    assert(m_presentationQueueToUse != nullptr); 
+    assert(m_presentationQueueToUse != nullptr);
 
     std::vector<StarTextures::Texture> newRenderToImages = std::vector<StarTextures::Texture>();
     const vk::Extent2D winResolution = m_winContext->window.getWindowFramebufferSize();
@@ -269,9 +269,9 @@ std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::cre
         // vk::AccessFlagBits::eNone, vk::AccessFlagBits::eColorAttachmentWrite,
         // vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput);
         // device->endSingleTimeCommands(buffer);
-        auto oneTimeSetup = core::helper::BeginSingleTimeCommands(
-            device.getDevice(), device.getEventBus(), device.getGraphicsManagers().commandPoolManager,
-            device.getManagerCommandBuffer().m_manager, star::Queue_Type::Tpresent);
+        auto oneTimeSetup = core::helper::BeginSingleTimeCommands(device.getDevice(), device.getEventBus(),
+                                                                  device.getManagerCommandBuffer().m_manager,
+                                                                  star::Queue_Type::Tpresent);
 
         vk::ImageMemoryBarrier2 barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier2;
