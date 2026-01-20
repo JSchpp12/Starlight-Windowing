@@ -56,7 +56,7 @@ void SwapChainControllerService::setInitParameters(star::service::InitParameters
     m_deviceFrameTracker = &params.flightTracker;
 }
 
-void SwapChainControllerService::init(const uint8_t &numFramesInFlight)
+void SwapChainControllerService::init()
 {
     assert(m_deviceEventBus != nullptr && m_deviceFrameTracker != nullptr);
 

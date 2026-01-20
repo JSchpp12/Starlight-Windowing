@@ -28,7 +28,7 @@ class SwapChainControllerService : private ListenForRequestForSwapChainPolicy<Sw
     SwapChainControllerService &operator=(SwapChainControllerService &&);
     ~SwapChainControllerService() = default;
 
-    void init(const uint8_t &numFramesInFlight);
+    void init();
 
     void setInitParameters(star::service::InitParameters &prams);
 

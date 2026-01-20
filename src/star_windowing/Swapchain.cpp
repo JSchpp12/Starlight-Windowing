@@ -63,7 +63,7 @@ void CreateSemaphores(common::EventBus &eventBus, const size_t &numToCreate, std
         eventBus.emit(core::device::system::event::ManagerRequest{
             common::HandleTypeRegistry::instance().getTypeGuaranteedExist(
                 core::device::manager::GetSemaphoreEventTypeName),
-            core::device::manager::SemaphoreRequest{false}, newHandles[i], &r});
+            core::device::manager::SemaphoreRequest(), newHandles[i], &r});
 
         if (r == nullptr)
         {

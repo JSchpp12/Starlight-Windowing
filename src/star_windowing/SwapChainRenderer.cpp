@@ -351,9 +351,16 @@ std::vector<star::Handle> star::windowing::SwapChainRenderer::CreateSemaphores(
 
     for (size_t i{0}; i < (size_t)numToCreate; i++)
     {
-        context.getEventBus().emit(core::device::system::event::ManagerRequest(
-            common::HandleTypeRegistry::instance().getType(core::device::manager::GetSemaphoreEventTypeName).value(),
-            core::device::manager::SemaphoreRequest{isTimeline}, semaphores[i]));
+        {
+            auto request = isTimeline ? core::device::manager::SemaphoreRequest(uint64_t{0})
+                                      : core::device::manager::SemaphoreRequest();
+
+            context.getEventBus().emit(core::device::system::event::ManagerRequest(
+                common::HandleTypeRegistry::instance()
+                    .getType(core::device::manager::GetSemaphoreEventTypeName)
+                    .value(),
+                std::move(request), semaphores[i]));
+        }
 
         if (!semaphores[i].isInitialized())
         {
