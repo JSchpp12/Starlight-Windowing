@@ -2,7 +2,9 @@
 
 #include "star_windowing/SwapChainRenderer.hpp"
 #include "star_windowing/service/SwapChainControllerService.hpp"
+
 #include <starlight/common/ConfigFile.hpp>
+#include <starlight/policy/DefaultEngineInitPolicy.hpp>
 
 #include <GLFW/glfw3.h>
 
@@ -79,10 +81,13 @@ common::FrameTracker::Setup EngineInitPolicy::getFrameInFlightTrackingSetup(core
 
 std::vector<service::Service> EngineInitPolicy::getAdditionalDeviceServices()
 {
-    std::vector<service::Service> service;
-    service.emplace_back(createSwapchainService());
+    auto services = std::vector<service::Service>(4); 
+    services[0] = policy::DefaultEngineInitPolicy::createIOService();
+    services[1] = policy::DefaultEngineInitPolicy::createSceneLoaderService();
+    services[2] = policy::DefaultEngineInitPolicy::createScreenCaptureService();
+    services[3] = createSwapchainService();
 
-    return service;
+    return services;
 }
 
 void EngineInitPolicy::init(uint8_t requestedNumFramesInFlight)
