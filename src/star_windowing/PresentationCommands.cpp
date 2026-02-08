@@ -40,13 +40,13 @@ void PresentationCommands::prepRender(core::device::DeviceContext &context)
 
 void PresentationCommands::registerListener(common::EventBus &eventBus)
 {
-    if (!common::HandleTypeRegistry::instance().contains(event::GetRenderReadyForFinalizationTypeName))
+    if (!common::HandleTypeRegistry::instance().contains(event::GetRenderReadyForFinalizationTypeName()))
     {
-        common::HandleTypeRegistry::instance().registerType(event::GetRenderReadyForFinalizationTypeName);
+        common::HandleTypeRegistry::instance().registerType(event::GetRenderReadyForFinalizationTypeName());
     }
 
     eventBus.subscribe(
-        common::HandleTypeRegistry::instance().getTypeGuaranteedExist(event::GetRenderReadyForFinalizationTypeName),
+        common::HandleTypeRegistry::instance().getTypeGuaranteedExist(event::GetRenderReadyForFinalizationTypeName()),
         {[this](const common::IEvent &e, bool &keepAlive) { this->eventCallback(e, keepAlive); },
          [this]() -> Handle * { return this->getHandleForUpdate(); },
          [this](const Handle &noLongerNeededHandle) {
