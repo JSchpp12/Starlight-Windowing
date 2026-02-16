@@ -1,8 +1,8 @@
 #include "star_windowing/service/SwapChainControllerService.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
-#include <starlight/event/PrepForNextFrame.hpp>
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/event/PrepForNextFrame.hpp>
 
 #include <cassert>
 #include <functional>
@@ -12,8 +12,8 @@ namespace star::windowing
 
 SwapChainControllerService::SwapChainControllerService(SwapChainControllerService &&other)
     : ListenForRequestForSwapChainPolicy<SwapChainControllerService>{*this},
-      star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this}, m_swapChain{std::move(other.m_swapChain)},
-      m_listenerHandle{}, m_winContext{std::move(other.m_winContext)},
+      star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this},
+      m_swapChain{std::move(other.m_swapChain)}, m_listenerHandle{}, m_winContext{std::move(other.m_winContext)},
       m_deviceEventBus{std::move(other.m_deviceEventBus)}, m_device{std::move(other.m_device)}
 {
     if (m_deviceEventBus != nullptr)
@@ -84,9 +84,17 @@ void SwapChainControllerService::onPrepForNextFrame(const star::event::PrepForNe
     assert(m_device != nullptr && m_deviceFrameTracker != nullptr);
     auto *frameTracker = event.getFrameTracker();
     // increment frame in flight index before handling next render to target image
-    frameTracker->getCurrent().setFrameInFlightIndex(incrementNextFrameInFlight(*frameTracker));
-    frameTracker->getCurrent().setFinalTargetImageIndex(incrementNextSwapChainImage(*frameTracker));
 
+    {
+        auto nextFrameIndex = incrementNextFrameInFlight(*frameTracker);
+        frameTracker->getCurrent().setFrameInFlightIndex(std::move(nextFrameIndex));
+    }
+    {
+        auto nextFrameIndex = incrementNextSwapChainImage(*frameTracker); 
+        frameTracker->getCurrent().setFinalTargetImageIndex(std::move(nextFrameIndex));
+    }
+    
+    
     keepAlive = true;
 }
 

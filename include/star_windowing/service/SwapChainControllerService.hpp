@@ -33,6 +33,8 @@ class SwapChainControllerService : private ListenForRequestForSwapChainPolicy<Sw
 
     void negotiateWorkers(core::WorkerPool &pool, job::TaskManager &tm)
     {
+      (void)pool;
+      (void)tm;
     }
 
     void setInitParameters(star::service::InitParameters &prams);
