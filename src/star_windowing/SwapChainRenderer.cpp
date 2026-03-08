@@ -194,7 +194,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     }
 
     uint32_t waitSemaphoreCount = 0;
-    common::helper::SafeCast<size_t, uint32_t>(waitSemaphores.size(), waitSemaphoreCount);
+    star::common::casts::SafeCast<size_t, uint32_t>(waitSemaphores.size(), waitSemaphoreCount);
 
     auto *signalSemaphore = &m_renderingContext.recordDependentSemaphores.get(
         this->imageAvailableSemaphores[frameTracker.getCurrent().getFinalTargetImageIndex()]);
@@ -332,7 +332,7 @@ void star::windowing::SwapChainRenderer::recordCommandBuffer(star::StarCommandBu
     commandBuffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
     auto barriers = getImageBarriersForThisFrame(frameTracker);
     uint32_t numBarriers;
-    common::helper::SafeCast<size_t, uint32_t>(barriers.size(), numBarriers);
+    star::common::casts::SafeCast<size_t, uint32_t>(barriers.size(), numBarriers);
 
     commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex())
         .pipelineBarrier2(
