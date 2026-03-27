@@ -84,17 +84,13 @@ void SwapChainControllerService::onPrepForNextFrame(const star::event::PrepForNe
     assert(m_device != nullptr && m_deviceFrameTracker != nullptr);
     auto *frameTracker = event.getFrameTracker();
     // increment frame in flight index before handling next render to target image
+    //
+    // update the previous count of the last frame
+    frameTracker->triggerIncrementForCurrentFrame();
 
-    {
-        auto nextFrameIndex = incrementNextFrameInFlight(*frameTracker);
-        frameTracker->getCurrent().setFrameInFlightIndex(std::move(nextFrameIndex));
-    }
-    {
-        auto nextFrameIndex = incrementNextSwapChainImage(*frameTracker); 
-        frameTracker->getCurrent().setFinalTargetImageIndex(std::move(nextFrameIndex));
-    }
-    
-    
+    frameTracker->getCurrent().setFrameInFlightIndex(incrementNextFrameInFlight(*frameTracker));
+    frameTracker->getCurrent().setFinalTargetImageIndex(incrementNextSwapChainImage(*frameTracker));
+
     keepAlive = true;
 }
 

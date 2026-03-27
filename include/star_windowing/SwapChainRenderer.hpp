@@ -1,7 +1,6 @@
 #pragma once
 
 #include "star_windowing/PresentationCommands.hpp"
-#include "star_windowing/StarWindow.hpp"
 #include "star_windowing/WindowingContext.hpp"
 
 #include <starlight/core/renderer/DefaultRenderer.hpp>
@@ -37,11 +36,11 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     virtual void frameUpdate(common::IDeviceContext &context) override;
 
-    std::vector<Handle> &getDoneSemaphores()
+    std::vector<Handle> &getSemaphores()
     {
         return imageAvailableSemaphores;
     }
-    std::vector<Handle> getDoneSemaphores() const
+    std::vector<Handle> getSemaphores() const
     {
         return imageAvailableSemaphores;
     }
@@ -51,7 +50,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     core::device::DeviceContext *device = nullptr;
     vk::SwapchainKHR m_swapChain;
     PresentationCommands::RecordDependencies m_presentationSharedDeps;
-    StarQueue* m_presentationQueueToUse = nullptr; 
+    StarQueue *m_presentationQueueToUse = nullptr;
     PresentationCommands m_presentationCommands;
 
     // tracker for which frame is being processed of the available permitted frames
@@ -102,8 +101,5 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     void prepareRenderingContext(core::device::DeviceContext &context);
 
     void addSemaphoresToRenderingContext(core::device::DeviceContext &context);
-
-    std::vector<vk::ImageMemoryBarrier2> getImageBarriersForThisFrame(
-        const common::FrameTracker &frameTracker);
 };
 } // namespace star::windowing

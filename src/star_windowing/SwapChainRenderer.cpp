@@ -1,7 +1,6 @@
 #include "star_windowing/SwapChainRenderer.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
-#include <starlight/common/ConfigFile.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
@@ -9,6 +8,56 @@
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 #include <GLFW/glfw3.h>
+
+namespace star::windowing
+{
+static void ApplyRenderBarriersPost(const StarCommandBuffer &cb, const star::common::FrameTracker &fTracker,
+                                    const StarTextures::Texture &renderToImage) noexcept
+{
+    vk::ImageMemoryBarrier2 barriers[1]{vk::ImageMemoryBarrier2()
+                                            .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
+                                            .setNewLayout(vk::ImageLayout::ePresentSrcKHR)
+                                            .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                                     .setBaseMipLevel(0)
+                                                                     .setLevelCount(1)
+                                                                     .setBaseArrayLayer(0)
+                                                                     .setLayerCount(1))
+                                            .setImage(renderToImage.getVulkanImage())
+                                            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                            .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                                            .setSrcAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
+                                            .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+                                            .setDstAccessMask(vk::AccessFlagBits2::eNone)};
+    cb.buffer(fTracker.getCurrent().getFrameInFlightIndex())
+        .pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers));
+}
+
+static void ApplyRenderBarriersPrep(const StarCommandBuffer &cb, const star::common::FrameTracker &fTracker,
+                                    const StarTextures::Texture &renderToImage) noexcept
+{
+    vk::ImageMemoryBarrier2 barriers[1]{vk::ImageMemoryBarrier2()
+                                            .setOldLayout(renderToImage.getImageLayout())
+                                            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
+                                            .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                                     .setBaseMipLevel(0)
+                                                                     .setLevelCount(1)
+                                                                     .setBaseArrayLayer(0)
+                                                                     .setLayerCount(1))
+                                            .setImage(renderToImage.getVulkanImage())
+                                            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                            .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                                            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                            .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                                            .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)};
+
+    cb.buffer(fTracker.getCurrent().getFrameInFlightIndex())
+        .pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers));
+}
+} // namespace star::windowing
 
 star::windowing::SwapChainRenderer::SwapChainRenderer(WindowingContext *winContext, vk::SwapchainKHR swapChain,
                                                       core::device::DeviceContext &context,
@@ -107,7 +156,7 @@ star::core::device::manager::ManagerCommandBuffer::Request star::windowing::Swap
         .order = Command_Buffer_Order::main_render_pass,
         .orderIndex = Command_Buffer_Order_Index::first,
         .type = Queue_Type::Tgraphics,
-        .waitStage = vk::PipelineStageFlagBits::eFragmentShader,
+        .waitStage = vk::PipelineStageFlagBits::eAllCommands,
         .willBeSubmittedEachFrame = true,
         .recordOnce = false,
         .overrideBufferSubmissionCallback =
@@ -162,71 +211,73 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
 {
     assert(m_presentationQueueToUse != nullptr);
 
-    const size_t &frameIndex = static_cast<const size_t &>(frameTracker.getCurrent().getFrameInFlightIndex());
+    const size_t frameIndex = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
 
-    std::vector<vk::Semaphore> waitSemaphores = {*m_winContext->syncInfo.swapChainAcquireSemaphore};
-    std::vector<vk::PipelineStageFlags> waitStages = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
+    std::vector<vk::SemaphoreSubmitInfo> waitInfos;
+
+    waitInfos.push_back(vk::SemaphoreSubmitInfo()
+        .setSemaphore(*m_winContext->syncInfo.swapChainAcquireSemaphore)
+        .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+        .setValue(0));
 
     if (previousCommandBufferSemaphores != nullptr)
     {
         for (auto &semaphore : *previousCommandBufferSemaphores)
         {
-            waitSemaphores.push_back(semaphore);
-            waitStages.push_back(vk::PipelineStageFlagBits::eVertexShader);
+            waitInfos.push_back(vk::SemaphoreSubmitInfo()
+                .setSemaphore(semaphore)
+                .setStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+                .setValue(0));
         }
     }
-
-    std::vector<uint64_t> waitSemaphoreValues = std::vector<uint64_t>(waitSemaphores.size() + dataSemaphores.size(), 0);
 
     assert(dataSemaphores.size() == dataWaitPoints.size());
+    for (size_t i = 0; i < dataSemaphores.size(); i++)
     {
-        const size_t startIndex = waitSemaphores.size();
-        for (size_t i = 0; i < dataSemaphores.size(); i++)
-        {
-            waitSemaphores.push_back(dataSemaphores[i]);
-            waitStages.push_back(dataWaitPoints[i]);
+        const vk::PipelineStageFlags2 stage2 = static_cast<vk::PipelineStageFlags2>(
+            static_cast<uint32_t>(dataWaitPoints[i]));
 
-            if (previousSignaledValues[i].has_value())
-            {
-                waitSemaphoreValues[startIndex + i] = previousSignaledValues[i].value();
-            }
-        }
+        uint64_t value = 0;
+        if (previousSignaledValues[i].has_value())
+            value = previousSignaledValues[i].value();
+
+        waitInfos.push_back(vk::SemaphoreSubmitInfo()
+            .setSemaphore(dataSemaphores[i])
+            .setStageMask(stage2)
+            .setValue(value));
     }
 
-    uint32_t waitSemaphoreCount = 0;
-    star::common::casts::SafeCast<size_t, uint32_t>(waitSemaphores.size(), waitSemaphoreCount);
+    const vk::CommandBufferSubmitInfo cbInfo = vk::CommandBufferSubmitInfo()
+        .setCommandBuffer(buffer.buffer(frameIndex));
 
     auto *signalSemaphore = &m_renderingContext.recordDependentSemaphores.get(
         this->imageAvailableSemaphores[frameTracker.getCurrent().getFinalTargetImageIndex()]);
     assert(signalSemaphore != nullptr &&
            "Signal semaphore was not properly added to the rendering context before record");
 
-    const vk::TimelineSemaphoreSubmitInfo timeSubmit = vk::TimelineSemaphoreSubmitInfo()
-                                                           .setWaitSemaphoreValues(waitSemaphoreValues)
-                                                           .setPSignalSemaphoreValues(nullptr);
+    const vk::SemaphoreSubmitInfo signalInfo = vk::SemaphoreSubmitInfo()
+        .setSemaphore(*signalSemaphore)
+        .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+        .setValue(0); // binary semaphore
 
-    const vk::SubmitInfo submitInfo = vk::SubmitInfo()
-                                          .setCommandBufferCount(1)
-                                          .setPWaitSemaphores(waitSemaphores.data())
-                                          .setWaitSemaphoreCount(waitSemaphoreCount)
-                                          .setPCommandBuffers(&buffer.buffer(frameIndex))
-                                          .setPWaitDstStageMask(waitStages.data())
-                                          .setPSignalSemaphores(signalSemaphore)
-                                          .setSignalSemaphoreCount(1)
-                                          .setPNext(&timeSubmit);
+    const vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
+        .setWaitSemaphoreInfos(waitInfos)
+        .setCommandBufferInfos(cbInfo)
+        .setSignalSemaphoreInfos(signalInfo);
 
     assert(m_winContext->syncInfo.imageAvailableFence != nullptr);
     const vk::Fence &fence = *m_winContext->syncInfo.imageAvailableFence;
-    auto commandResult =
-        std::make_unique<vk::Result>(m_presentationQueueToUse->getVulkanQueue().submit(1, &submitInfo, fence));
-    if (*commandResult != vk::Result::eSuccess)
+
+    const vk::Result result = m_presentationQueueToUse->getVulkanQueue().submit2(1, &submitInfo, fence);
+    if (result != vk::Result::eSuccess)
     {
         STAR_THROW("Failed to submit command buffer");
     }
 
     m_presentationSharedDeps.acquiredSwapChainImageIndex = frameTracker.getCurrent().getFinalTargetImageIndex();
 
-    m_renderingContext.recordDependentImage.get(m_renderToImages[frameIndex])
+    m_renderingContext.recordDependentImage.get(
+        m_renderToImages[frameTracker.getCurrent().getFinalTargetImageIndex()])
         ->setImageLayout(vk::ImageLayout::ePresentSrcKHR);
 
     return *signalSemaphore;
@@ -264,44 +315,28 @@ std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::cre
         newRenderToImages.emplace_back(builder.build());
         newRenderToImages.back().setImageLayout(vk::ImageLayout::ePresentSrcKHR);
 
-        // auto buffer = device->beginSingleTimeCommands();
-        // newRenderToImages.back()->transitionLayout(buffer, vk::ImageLayout::ePresentSrcKHR,
-        // vk::AccessFlagBits::eNone, vk::AccessFlagBits::eColorAttachmentWrite,
-        // vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-        // device->endSingleTimeCommands(buffer);
         auto oneTimeSetup = core::helper::BeginSingleTimeCommands(device.getDevice(), device.getEventBus(),
                                                                   device.getManagerCommandBuffer().m_manager,
                                                                   star::Queue_Type::Tpresent);
 
-        vk::ImageMemoryBarrier2 barrier{};
-        barrier.sType = vk::StructureType::eImageMemoryBarrier2;
-        barrier.oldLayout = vk::ImageLayout::eUndefined;
-        barrier.newLayout = vk::ImageLayout::ePresentSrcKHR;
-        barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
-        barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
+        vk::ImageMemoryBarrier2 barrier[1]{vk::ImageMemoryBarrier2()
+                                               .setOldLayout(vk::ImageLayout::eUndefined)
+                                               .setNewLayout(vk::ImageLayout::ePresentSrcKHR)
+                                               .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                               .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                               .setImage(newRenderToImages.back().getVulkanImage())
+                                               .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                               .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                                               .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
+                                               .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                                               .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                                        .setBaseMipLevel(0)
+                                                                        .setLevelCount(1)
+                                                                        .setBaseArrayLayer(0)
+                                                                        .setLayerCount(1))};
 
-        barrier.image = newRenderToImages.back().getVulkanImage();
-        barrier.srcAccessMask = vk::AccessFlagBits2::eNone;
-        barrier.setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe);
-        barrier.dstAccessMask = vk::AccessFlagBits2::eNone;
-        barrier.setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput);
-
-        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        barrier.subresourceRange.baseMipLevel = 0; // image does not have any mipmap levels
-        barrier.subresourceRange.levelCount = 1;   // image is not an array
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-
-        oneTimeSetup.buffer().pipelineBarrier2(
-            vk::DependencyInfo().setPImageMemoryBarriers(&barrier).setImageMemoryBarrierCount(1));
-
-        // oneTimeSetup->buffer().pipelineBarrier(
-        //     vk::PipelineStageFlagBits::eTopOfPipe,             // which pipeline stages should
-        //                                                        // occurr before barrier
-        //     vk::PipelineStageFlagBits::eColorAttachmentOutput, // pipeline stage in
-        //                                                        // which operations will
-        //                                                        // wait on the barrier
-        //     {}, {}, nullptr, barrier);
+        oneTimeSetup.buffer().pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barrier));
 
         core::helper::EndSingleTimeCommands(*m_presentationQueueToUse, std::move(oneTimeSetup));
     }
@@ -330,17 +365,16 @@ void star::windowing::SwapChainRenderer::recordCommandBuffer(star::StarCommandBu
                                                              const uint64_t &frameIndex)
 {
     commandBuffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
-    auto barriers = getImageBarriersForThisFrame(frameTracker);
-    uint32_t numBarriers;
-    star::common::casts::SafeCast<size_t, uint32_t>(barriers.size(), numBarriers);
 
-    commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex())
-        .pipelineBarrier2(
-            vk::DependencyInfo().setImageMemoryBarrierCount(numBarriers).setPImageMemoryBarriers(barriers.data()));
+    StarTextures::Texture *image = m_renderingContext.recordDependentImage.get(
+        m_renderToImages[frameTracker.getCurrent().getFinalTargetImageIndex()]);
+
+    ApplyRenderBarriersPrep(commandBuffer, frameTracker, *image);
 
     this->DefaultRenderer::recordCommands(commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()),
                                           frameTracker, frameIndex);
 
+    ApplyRenderBarriersPost(commandBuffer, frameTracker, *image);
     commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()).end();
 }
 
@@ -405,47 +439,4 @@ void star::windowing::SwapChainRenderer::addSemaphoresToRenderingContext(core::d
         m_renderingContext.recordDependentSemaphores.manualInsert(
             semaphore, context.getSemaphoreManager().get(semaphore)->semaphore);
     }
-}
-
-std::vector<vk::ImageMemoryBarrier2> star::windowing::SwapChainRenderer::getImageBarriersForThisFrame(
-    const common::FrameTracker &frameTracker)
-{
-    StarTextures::Texture *image = m_renderingContext.recordDependentImage.get(
-        m_renderToImages[frameTracker.getCurrent().getFrameInFlightIndex()]);
-
-    auto barriers = std::vector<vk::ImageMemoryBarrier2>{
-        vk::ImageMemoryBarrier2()
-            .setOldLayout(image->getImageLayout())
-            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1))
-            .setImage(image->getVulkanImage())
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
-            .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite),
-        vk::ImageMemoryBarrier2()
-            .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setNewLayout(vk::ImageLayout::ePresentSrcKHR)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1))
-            .setImage(image->getVulkanImage())
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
-            .setSrcAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)};
-
-    return barriers;
 }
