@@ -1,6 +1,7 @@
 #include "star_windowing/SwapChainRenderer.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
+#include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
@@ -89,7 +90,7 @@ star::windowing::SwapChainRenderer::SwapChainRenderer(SwapChainRenderer &&other)
       device(other.device), numFramesInFlight(std::move(other.numFramesInFlight)),
       m_presentationSharedDeps(std::move(other.m_presentationSharedDeps)),
       m_presentationCommands(std::move(other.m_presentationCommands)),
-      m_presentationQueueToUse(std::move(other.m_presentationQueueToUse))
+      m_presentationQueueToUse(std::move(other.m_presentationQueueToUse)), m_cmdBus(other.m_cmdBus)
 {
     m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain, m_presentationQueueToUse);
 }
@@ -106,6 +107,7 @@ star::windowing::SwapChainRenderer &star::windowing::SwapChainRenderer::operator
         m_presentationSharedDeps = std::move(other.m_presentationSharedDeps);
         m_presentationCommands = std::move(other.m_presentationCommands);
         m_presentationQueueToUse = std::move(other.m_presentationQueueToUse);
+        m_cmdBus = other.m_cmdBus;
 
         m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain, m_presentationQueueToUse);
     }
@@ -118,8 +120,8 @@ void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
     auto &context = static_cast<core::device::DeviceContext &>(c);
     const size_t numSwapChainImages = context.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain).size();
 
-    this->imageAvailableSemaphores = CreateSemaphores(
-        context, context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization(), false);
+    this->imageAvailableSemaphores =
+        CreateSemaphores(context, context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization(), true);
 
     m_presentationQueueToUse = core::helper::GetEngineDefaultQueue(
         context.getEventBus(), context.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
@@ -131,6 +133,8 @@ void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
 
     m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain, m_presentationQueueToUse);
     m_presentationCommands.prepRender(context);
+
+    m_cmdBus = &context.getCmdBus();
 
     DefaultRenderer::prepRender(c);
 }
@@ -216,54 +220,50 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     std::vector<vk::SemaphoreSubmitInfo> waitInfos;
 
     waitInfos.push_back(vk::SemaphoreSubmitInfo()
-        .setSemaphore(*m_winContext->syncInfo.swapChainAcquireSemaphore)
-        .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
-        .setValue(0));
-
-    if (previousCommandBufferSemaphores != nullptr)
-    {
-        for (auto &semaphore : *previousCommandBufferSemaphores)
-        {
-            waitInfos.push_back(vk::SemaphoreSubmitInfo()
-                .setSemaphore(semaphore)
-                .setStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-                .setValue(0));
-        }
-    }
+                            .setSemaphore(*m_winContext->syncInfo.swapChainAcquireSemaphore)
+                            .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                            .setValue(0));
 
     assert(dataSemaphores.size() == dataWaitPoints.size());
     for (size_t i = 0; i < dataSemaphores.size(); i++)
     {
-        const vk::PipelineStageFlags2 stage2 = static_cast<vk::PipelineStageFlags2>(
-            static_cast<uint32_t>(dataWaitPoints[i]));
+        const vk::PipelineStageFlags2 stage2 =
+            static_cast<vk::PipelineStageFlags2>(static_cast<uint32_t>(dataWaitPoints[i]));
 
         uint64_t value = 0;
         if (previousSignaledValues[i].has_value())
             value = previousSignaledValues[i].value();
 
-        waitInfos.push_back(vk::SemaphoreSubmitInfo()
-            .setSemaphore(dataSemaphores[i])
-            .setStageMask(stage2)
-            .setValue(value));
+        waitInfos.push_back(
+            vk::SemaphoreSubmitInfo().setSemaphore(dataSemaphores[i]).setStageMask(stage2).setValue(value));
     }
 
-    const vk::CommandBufferSubmitInfo cbInfo = vk::CommandBufferSubmitInfo()
-        .setCommandBuffer(buffer.buffer(frameIndex));
+    const vk::CommandBufferSubmitInfo cbInfo =
+        vk::CommandBufferSubmitInfo().setCommandBuffer(buffer.buffer(frameIndex));
 
-    auto *signalSemaphore = &m_renderingContext.recordDependentSemaphores.get(
-        this->imageAvailableSemaphores[frameTracker.getCurrent().getFinalTargetImageIndex()]);
-    assert(signalSemaphore != nullptr &&
-           "Signal semaphore was not properly added to the rendering context before record");
+    vk::Semaphore semaphore{VK_NULL_HANDLE};
+    uint64_t signalValue{0};
+    {
+        assert(m_cmdBus != nullptr);
+        auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
+        m_cmdBus->submit(cmd);
 
-    const vk::SemaphoreSubmitInfo signalInfo = vk::SemaphoreSubmitInfo()
-        .setSemaphore(*signalSemaphore)
-        .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
-        .setValue(0); // binary semaphore
+        semaphore = cmd.getReply().get().signaledSemaphore;
+        signalValue = cmd.getReply().get().toSignalValue;
+    }
 
-    const vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
-        .setWaitSemaphoreInfos(waitInfos)
-        .setCommandBufferInfos(cbInfo)
-        .setSignalSemaphoreInfos(signalInfo);
+    const vk::SemaphoreSubmitInfo signalInfo[2]{vk::SemaphoreSubmitInfo()
+                                                    .setSemaphore(semaphore)
+                                                    .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+                                                    .setValue(signalValue),
+                                                vk::SemaphoreSubmitInfo()
+                                                    .setSemaphore(buffer.getCompleteSemaphores()[frameIndex])
+                                                    .setValue(0)
+                                                    .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)};
+
+    const vk::SubmitInfo2 submitInfo =
+        vk::SubmitInfo2().setWaitSemaphoreInfos(waitInfos).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
+            signalInfo);
 
     assert(m_winContext->syncInfo.imageAvailableFence != nullptr);
     const vk::Fence &fence = *m_winContext->syncInfo.imageAvailableFence;
@@ -276,11 +276,10 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
 
     m_presentationSharedDeps.acquiredSwapChainImageIndex = frameTracker.getCurrent().getFinalTargetImageIndex();
 
-    m_renderingContext.recordDependentImage.get(
-        m_renderToImages[frameTracker.getCurrent().getFinalTargetImageIndex()])
+    m_renderingContext.recordDependentImage.get(m_renderToImages[frameTracker.getCurrent().getFinalTargetImageIndex()])
         ->setImageLayout(vk::ImageLayout::ePresentSrcKHR);
 
-    return *signalSemaphore;
+    return buffer.getCompleteSemaphores()[frameIndex];
 }
 
 std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::createRenderToImages(

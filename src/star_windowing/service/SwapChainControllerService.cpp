@@ -1,25 +1,26 @@
 #include "star_windowing/service/SwapChainControllerService.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
+#include <starlight/command/frames/GetFrameTracker.hpp>
 #include <starlight/core/Exceptions.hpp>
-#include <starlight/event/PrepForNextFrame.hpp>
 
 #include <cassert>
-#include <functional>
 
 namespace star::windowing
 {
 
 SwapChainControllerService::SwapChainControllerService(SwapChainControllerService &&other)
     : ListenForRequestForSwapChainPolicy<SwapChainControllerService>{*this},
-      star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>{*this},
-      m_swapChain{std::move(other.m_swapChain)}, m_listenerHandle{}, m_winContext{std::move(other.m_winContext)},
-      m_deviceEventBus{std::move(other.m_deviceEventBus)}, m_device{std::move(other.m_device)}
+      m_frameTracker(std::move(other.m_frameTracker)), m_swapChain{std::move(other.m_swapChain)}, m_listenerHandle{},
+      m_listenGetFrameTracker{*this}, m_listenFrameComplete{*this},
+      m_listenPrepNextFrame{*this} ,m_winContext{std::move(other.m_winContext)},
+      m_eventBus{std::move(other.m_eventBus)}, m_cmdBus{other.m_cmdBus}, m_device{std::move(other.m_device)}
 {
-    if (m_deviceEventBus != nullptr)
+    if (m_eventBus != nullptr)
     {
-        other.cleanup(*m_deviceEventBus);
-        initListeners(*m_deviceEventBus);
+        other.cleanup(*m_eventBus, *m_cmdBus);
+        initListeners(*m_eventBus);
+        initListeners(*m_cmdBus);
     }
 }
 
@@ -27,48 +28,83 @@ SwapChainControllerService &SwapChainControllerService::operator=(SwapChainContr
 {
     if (this != &other)
     {
+        m_frameTracker = std::move(other.m_frameTracker);
         m_swapChain = std::move(other.m_swapChain);
         m_winContext = std::move(other.m_winContext);
-        m_deviceEventBus = std::move(other.m_deviceEventBus);
-        m_deviceFrameTracker = std::move(other.m_deviceFrameTracker);
+        m_eventBus = std::move(other.m_eventBus);
+        m_cmdBus = other.m_cmdBus;
         m_device = std::move(other.m_device);
 
-        if (m_deviceEventBus != nullptr)
+        if (m_eventBus != nullptr)
         {
-            other.cleanup(*m_deviceEventBus);
-            initListeners(*m_deviceEventBus);
+            other.cleanup(*m_eventBus, *m_cmdBus);
+            initListeners(*m_eventBus);
+            initListeners(*m_cmdBus);
         }
     }
 
     return *this;
 }
 
-void SwapChainControllerService::cleanup(common::EventBus &eventBus)
+void SwapChainControllerService::cleanup(common::EventBus &eventBus, core::CommandBus &cmdBus)
 {
-    ListenForRequestForSwapChainPolicy<SwapChainControllerService>::cleanup(eventBus);
-    star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>::cleanup(eventBus);
+    cleanupListeners(eventBus);
+    cleanupListeners(cmdBus);
 }
 
 void SwapChainControllerService::setInitParameters(star::service::InitParameters &params)
 {
-    m_deviceEventBus = &params.eventBus;
+    m_cmdBus = &params.commandBus;
+    m_eventBus = &params.eventBus;
     m_device = &params.device;
-    m_deviceFrameTracker = &params.flightTracker;
+
+    m_frameTracker = star::common::FrameTracker(params.flightTrackerSetup);
+}
+
+void SwapChainControllerService::onStartOfNextFrame(const star::event::StartOfNextFrame &event, bool &keepAlive)
+{
+    m_frameTracker.getCurrent().setFinalTargetImageIndex(incrementNextSwapChainImage(m_frameTracker));
+
+    keepAlive = true;
 }
 
 void SwapChainControllerService::init()
 {
-    assert(m_deviceEventBus != nullptr && m_deviceFrameTracker != nullptr);
+    assert(m_eventBus != nullptr);
 
     m_swapChain = SwapChain(m_winContext);
-    m_swapChain.prepRender(*m_device, *m_deviceEventBus, *m_deviceFrameTracker);
-    initListeners(*m_deviceEventBus);
+    m_swapChain.prepRender(*m_device, *m_eventBus, m_frameTracker);
+    initListeners(*m_eventBus);
+    initListeners(*m_cmdBus);
 }
 
 void SwapChainControllerService::initListeners(common::EventBus &eventBus)
 {
     ListenForRequestForSwapChainPolicy<SwapChainControllerService>::init(eventBus);
-    star::policy::ListenForPrepForNextFramePolicy<SwapChainControllerService>::init(eventBus);
+    m_listenFrameComplete.init(eventBus);
+    m_listenPrepNextFrame.init(eventBus);
+}
+
+void SwapChainControllerService::initListeners(star::core::CommandBus &cmdBus)
+{
+    m_listenGetFrameTracker.init(cmdBus);
+}
+
+void SwapChainControllerService::cleanupListeners(common::EventBus &eventBus)
+{
+    ListenForRequestForSwapChainPolicy<SwapChainControllerService>::cleanup(eventBus);
+    m_listenFrameComplete.cleanup(eventBus);
+    m_listenPrepNextFrame.cleanup(eventBus);
+}
+
+void SwapChainControllerService::cleanupListeners(star::core::CommandBus &cmdBus)
+{
+    m_listenGetFrameTracker.cleanup(cmdBus);
+}
+
+void SwapChainControllerService::onGetFrameTracker(star::frames::GetFrameTracker &cmd)
+{
+    cmd.getReply().set(&m_frameTracker);
 }
 
 void SwapChainControllerService::shutdown()
@@ -79,17 +115,11 @@ void SwapChainControllerService::shutdown()
     m_swapChain.cleanupRender(*m_device);
 }
 
-void SwapChainControllerService::onPrepForNextFrame(const star::event::PrepForNextFrame &event, bool &keepAlive)
+void SwapChainControllerService::onFrameComplete(const star::event::FrameComplete &event, bool &keepAlive)
 {
-    assert(m_device != nullptr && m_deviceFrameTracker != nullptr);
-    auto *frameTracker = event.getFrameTracker();
-    // increment frame in flight index before handling next render to target image
-    //
-    // update the previous count of the last frame
-    frameTracker->triggerIncrementForCurrentFrame();
+    m_frameTracker.triggerIncrementForCurrentFrame();
 
-    frameTracker->getCurrent().setFrameInFlightIndex(incrementNextFrameInFlight(*frameTracker));
-    frameTracker->getCurrent().setFinalTargetImageIndex(incrementNextSwapChainImage(*frameTracker));
+    m_frameTracker.getCurrent().setFrameInFlightIndex(incrementNextFrameInFlight(m_frameTracker));
 
     keepAlive = true;
 }
