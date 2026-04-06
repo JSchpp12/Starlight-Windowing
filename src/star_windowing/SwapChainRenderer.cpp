@@ -217,13 +217,12 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
 
     const size_t frameIndex = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
 
-    std::vector<vk::SemaphoreSubmitInfo> waitInfos;
-
-    waitInfos.push_back(vk::SemaphoreSubmitInfo()
-                            .setSemaphore(*m_winContext->syncInfo.swapChainAcquireSemaphore)
-                            .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
-                            .setValue(0));
-
+    vk::SemaphoreSubmitInfo waitInfo[10];
+    waitInfo[0]
+        .setSemaphore(*m_winContext->syncInfo.swapChainAcquireSemaphore)
+        .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+        .setValue(0);
+    uint8_t waitInfoCount{1};
     assert(dataSemaphores.size() == dataWaitPoints.size());
     for (size_t i = 0; i < dataSemaphores.size(); i++)
     {
@@ -234,36 +233,57 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
         if (previousSignaledValues[i].has_value())
             value = previousSignaledValues[i].value();
 
-        waitInfos.push_back(
-            vk::SemaphoreSubmitInfo().setSemaphore(dataSemaphores[i]).setStageMask(stage2).setValue(value));
+        waitInfo[waitInfoCount].setSemaphore(dataSemaphores[i]).setStageMask(stage2).setValue(value);
+        waitInfoCount++;
     }
 
     const vk::CommandBufferSubmitInfo cbInfo =
         vk::CommandBufferSubmitInfo().setCommandBuffer(buffer.buffer(frameIndex));
 
-    vk::Semaphore semaphore{VK_NULL_HANDLE};
-    uint64_t signalValue{0};
+    // get my and neighbor info
+    vk::Semaphore mySemaphore{VK_NULL_HANDLE};
+    uint64_t mySemaphoreSignalValue{0};
     {
-        assert(m_cmdBus != nullptr);
         auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
         m_cmdBus->submit(cmd);
+        mySemaphore = cmd.getReply().get().signaledSemaphore;
+        mySemaphoreSignalValue = cmd.getReply().get().toSignalValue;
 
-        semaphore = cmd.getReply().get().signaledSemaphore;
-        signalValue = cmd.getReply().get().toSignalValue;
+        assert(cmd.getReply().get().edges != nullptr &&
+               "No neighbor command buffers were registered. At least one is expected");
+        assert(cmd.getReply().get().edges->size() + dataWaitPoints.size() < 10 &&
+               "Static size container for wait semaphore info only expects a max of 10");
+        for (const auto &edge : *cmd.getReply().get().edges)
+        {
+            if (edge.consumer == m_commandBuffer)
+            {
+                auto nCmd = star::command_order::GetPassInfo{edge.producer};
+                m_cmdBus->submit(nCmd);
+
+                waitInfo[waitInfoCount]
+                    .setSemaphore(nCmd.getReply().get().signaledSemaphore)
+                    .setValue(nCmd.getReply().get().toSignalValue)
+                    .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+
+                waitInfoCount++;
+            }
+        }
     }
 
     const vk::SemaphoreSubmitInfo signalInfo[2]{vk::SemaphoreSubmitInfo()
-                                                    .setSemaphore(semaphore)
+                                                    .setSemaphore(mySemaphore)
                                                     .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
-                                                    .setValue(signalValue),
+                                                    .setValue(mySemaphoreSignalValue),
                                                 vk::SemaphoreSubmitInfo()
                                                     .setSemaphore(buffer.getCompleteSemaphores()[frameIndex])
                                                     .setValue(0)
                                                     .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)};
 
-    const vk::SubmitInfo2 submitInfo =
-        vk::SubmitInfo2().setWaitSemaphoreInfos(waitInfos).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
-            signalInfo);
+    const vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
+                                           .setPWaitSemaphoreInfos(waitInfo)
+                                           .setWaitSemaphoreInfoCount(waitInfoCount)
+                                           .setCommandBufferInfos(cbInfo)
+                                           .setSignalSemaphoreInfos(signalInfo);
 
     assert(m_winContext->syncInfo.imageAvailableFence != nullptr);
     const vk::Fence &fence = *m_winContext->syncInfo.imageAvailableFence;
