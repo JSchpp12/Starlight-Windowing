@@ -121,7 +121,7 @@ void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
     const size_t numSwapChainImages = context.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain).size();
 
     this->imageAvailableSemaphores =
-        CreateSemaphores(context, context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization(), true);
+        CreateSemaphores(context, context.frameTracker().getSetup().getNumUniqueTargetFramesForFinalization(), true);
 
     m_presentationQueueToUse = core::helper::GetEngineDefaultQueue(
         context.getEventBus(), context.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
