@@ -1,10 +1,10 @@
 #pragma once
 
 #include "star_windowing/PresentationCommands.hpp"
-#include "star_windowing/StarWindow.hpp"
 #include "star_windowing/WindowingContext.hpp"
 
 #include <starlight/core/renderer/DefaultRenderer.hpp>
+
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
@@ -37,22 +37,19 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     virtual void frameUpdate(common::IDeviceContext &context) override;
 
-    std::vector<Handle> &getDoneSemaphores()
-    {
-        return imageAvailableSemaphores;
-    }
-    std::vector<Handle> getDoneSemaphores() const
+    const std::vector<Handle> &getSemaphores() const
     {
         return imageAvailableSemaphores;
     }
 
   protected:
-    WindowingContext *m_winContext = nullptr;
-    core::device::DeviceContext *device = nullptr;
     vk::SwapchainKHR m_swapChain;
     PresentationCommands::RecordDependencies m_presentationSharedDeps;
-    StarQueue* m_presentationQueueToUse = nullptr; 
     PresentationCommands m_presentationCommands;
+    StarQueue *m_presentationQueueToUse = nullptr;
+    WindowingContext *m_winContext = nullptr;
+    core::device::DeviceContext *device = nullptr;
+    const core::CommandBus *m_cmdBus = nullptr;
 
     // tracker for which frame is being processed of the available permitted frames
     uint8_t previousFrame = 0, numFramesInFlight = 0;
@@ -62,8 +59,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     // Sync obj storage
     std::vector<Handle> imageAvailableSemaphores;
-    std::vector<Handle> graphicsDoneSemaphoresExternalUse; /// These are guaranteed to match with the current frame in
-                                                           /// flight for other command buffers to reference
+    std::vector<Handle> graphicsDoneSemaphoresExternalUse;
 
     virtual star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 
@@ -102,8 +98,5 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     void prepareRenderingContext(core::device::DeviceContext &context);
 
     void addSemaphoresToRenderingContext(core::device::DeviceContext &context);
-
-    std::vector<vk::ImageMemoryBarrier2> getImageBarriersForThisFrame(
-        const common::FrameTracker &frameTracker);
 };
 } // namespace star::windowing

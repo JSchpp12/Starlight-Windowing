@@ -3,7 +3,6 @@
 #include "star_windowing/RenderingSurface.hpp"
 #include "star_windowing/StarWindow.hpp"
 
-#include <vector>
 namespace star::windowing
 {
 struct WindowingContext

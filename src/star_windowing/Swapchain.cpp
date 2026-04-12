@@ -78,7 +78,7 @@ SwapChain::SwapChain(WindowingContext *winContext) : m_winContext(winContext)
 }
 
 void SwapChain::prepRender(core::device::StarDevice &device, common::EventBus &eventBus,
-                           common::FrameTracker &deviceFrameTracker)
+                           const common::FrameTracker &deviceFrameTracker)
 {
     m_swapChain = createSwapchain(device, deviceFrameTracker);
     m_imagesInFlight.resize(deviceFrameTracker.getSetup().getNumUniqueTargetFramesForFinalization());
@@ -141,7 +141,7 @@ uint8_t SwapChain::getNumImagesGuaranteedInSwapchain(core::device::StarDevice &d
     return chooseNumOfImages(caps);
 }
 
-vk::SwapchainKHR SwapChain::createSwapchain(core::device::StarDevice &device, common::FrameTracker &deviceFrameTracker)
+vk::SwapchainKHR SwapChain::createSwapchain(core::device::StarDevice &device, const common::FrameTracker &deviceFrameTracker)
 {
     vk::Extent2D resolution{};
     vk::SurfaceFormatKHR format{};

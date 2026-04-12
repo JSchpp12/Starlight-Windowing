@@ -20,7 +20,7 @@ class SwapChain
     explicit SwapChain(WindowingContext *winContext);
 
     void prepRender(core::device::StarDevice &device, common::EventBus &eventBus,
-                    common::FrameTracker &deviceFrameTracker);
+                    const common::FrameTracker &deviceFrameTracker);
 
     void cleanupRender(core::device::StarDevice &device);
 
@@ -29,7 +29,7 @@ class SwapChain
     vk::ResultValue<uint32_t> acquireNextSwapChainImage(core::device::StarDevice &device,
                                                         const common::FrameTracker &frameTracker) noexcept;
 
-    vk::SwapchainKHR &getVulkanSwapchain()
+    vk::SwapchainKHR getVulkanSwapchain() const
     {
         return m_swapChain;
     }
@@ -43,7 +43,7 @@ class SwapChain
     vk::SwapchainKHR m_swapChain{VK_NULL_HANDLE};
     WindowingContext *m_winContext = nullptr;
 
-    vk::SwapchainKHR createSwapchain(core::device::StarDevice &device, common::FrameTracker &deviceFrameTracker);
+    vk::SwapchainKHR createSwapchain(core::device::StarDevice &device, const common::FrameTracker &deviceFrameTracker);
 
     void waitForPreviousFrameInFlightToBeDone(core::device::StarDevice &device, const uint32_t &imageIndex);
 
