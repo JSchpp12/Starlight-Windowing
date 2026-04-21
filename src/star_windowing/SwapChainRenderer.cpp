@@ -29,7 +29,7 @@ static void ApplyRenderBarriersPost(const StarCommandBuffer &cb, const star::com
                                             .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
                                             .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
                                             .setSrcAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
-                                            .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+                                            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
                                             .setDstAccessMask(vk::AccessFlagBits2::eNone)};
     cb.buffer(fTracker.getCurrent().getFrameInFlightIndex())
         .pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers));
@@ -122,6 +122,14 @@ void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
 
     this->imageAvailableSemaphores =
         CreateSemaphores(context, context.frameTracker().getSetup().getNumUniqueTargetFramesForFinalization(), true);
+    const auto binaryDoneSemaphores = CreateSemaphores(context, numSwapChainImages, false);
+    rawBinaryRenderDoneSemaphores.resize(binaryDoneSemaphores.size());
+    for (size_t i{0}; i < binaryDoneSemaphores.size(); i++)
+    {
+        rawBinaryRenderDoneSemaphores[i] =
+            context.getGraphicsManagers().semaphoreManager->get(binaryDoneSemaphores[i])->semaphore;
+    }
+
 
     m_presentationQueueToUse = core::helper::GetEngineDefaultQueue(
         context.getEventBus(), context.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
@@ -216,6 +224,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     assert(m_presentationQueueToUse != nullptr);
 
     const size_t frameIndex = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    const size_t presentImageIndex = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
 
     vk::SemaphoreSubmitInfo waitInfo[10];
     waitInfo[0]
@@ -275,7 +284,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
                                                     .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
                                                     .setValue(mySemaphoreSignalValue),
                                                 vk::SemaphoreSubmitInfo()
-                                                    .setSemaphore(buffer.getCompleteSemaphores()[frameIndex])
+                                                    .setSemaphore(rawBinaryRenderDoneSemaphores[presentImageIndex])
                                                     .setValue(0)
                                                     .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)};
 
@@ -299,7 +308,7 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     m_renderingContext.recordDependentImage.get(m_renderToImages[frameTracker.getCurrent().getFinalTargetImageIndex()])
         ->setImageLayout(vk::ImageLayout::ePresentSrcKHR);
 
-    return buffer.getCompleteSemaphores()[frameIndex];
+    return rawBinaryRenderDoneSemaphores[presentImageIndex];
 }
 
 std::vector<star::StarTextures::Texture> star::windowing::SwapChainRenderer::createRenderToImages(

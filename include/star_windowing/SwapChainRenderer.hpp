@@ -59,6 +59,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     // Sync obj storage
     std::vector<Handle> imageAvailableSemaphores;
+    std::vector<vk::Semaphore> rawBinaryRenderDoneSemaphores; 
     std::vector<Handle> graphicsDoneSemaphoresExternalUse;
 
     virtual star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
