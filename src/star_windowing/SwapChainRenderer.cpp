@@ -130,7 +130,6 @@ void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
             context.getGraphicsManagers().semaphoreManager->get(binaryDoneSemaphores[i])->semaphore;
     }
 
-
     m_presentationQueueToUse = core::helper::GetEngineDefaultQueue(
         context.getEventBus(), context.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
 
@@ -218,8 +217,8 @@ vk::Format star::windowing::SwapChainRenderer::getColorAttachmentFormat(star::co
 
 vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
     StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
-    std::vector<vk::Semaphore> *previousCommandBufferSemaphores, std::vector<vk::Semaphore> dataSemaphores,
-    std::vector<vk::PipelineStageFlags> dataWaitPoints, std::vector<std::optional<uint64_t>> previousSignaledValues)
+    std::vector<vk::Semaphore> *previousCommandBufferSemaphores, std::vector<vk::Semaphore> &dataSemaphores,
+    std::vector<vk::PipelineStageFlags> &dataWaitPoints, std::vector<std::optional<uint64_t>> &previousSignaledValues)
 {
     assert(m_presentationQueueToUse != nullptr);
 

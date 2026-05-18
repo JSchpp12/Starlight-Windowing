@@ -59,7 +59,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     // Sync obj storage
     std::vector<Handle> imageAvailableSemaphores;
-    std::vector<vk::Semaphore> rawBinaryRenderDoneSemaphores; 
+    std::vector<vk::Semaphore> rawBinaryRenderDoneSemaphores;
     std::vector<Handle> graphicsDoneSemaphoresExternalUse;
 
     virtual star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
@@ -72,9 +72,9 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     vk::Semaphore submitBuffer(StarCommandBuffer &buffer, const common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> previousSignaledValues);
+                               std::vector<vk::Semaphore> &dataSemaphores,
+                               std::vector<vk::PipelineStageFlags> &dataWaitPoints,
+                               std::vector<std::optional<uint64_t>> &previousSignaledValues);
 
     virtual std::vector<StarTextures::Texture> createRenderToImages(core::device::DeviceContext &device,
                                                                     const uint8_t &numFramesInFlight) override;
