@@ -35,8 +35,20 @@ core::device::StarDevice EngineInitPolicy::createNewDevice(
     std::set<Rendering_Device_Features> &engineRenderingDeviceFeatures)
 {
     vk::SurfaceKHR vkSurface = m_winContext.surface.getVulkanSurface();
-    return core::device::StarDevice(renderingInstance, engineRenderingFeatures, engineRenderingDeviceFeatures,
-                                    {VK_KHR_SWAPCHAIN_EXTENSION_NAME}, &vkSurface);
+    auto builder = core::device::StarDevice::Builder(renderingInstance)
+                       .setOptionalSurface(vkSurface)
+                       .setAdditionalExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME})
+                       .setRenderingDeviceFeatures(engineRenderingDeviceFeatures)
+                       .setRenderingFeatures(engineRenderingFeatures);
+
+    const int overridenEngineID =
+        m_overrideRenderingDeviceIndex.has_value()
+            ? m_overrideRenderingDeviceIndex.value()
+            : star::ConfigFile::getInt(star::Config_Settings::required_device_feature_gpu_index, -1);
+    if (overridenEngineID != -1)
+        builder.setOverrideDeviceID(overridenEngineID);
+
+    return builder.build();
 }
 
 RenderingSurface EngineInitPolicy::createRenderingSurface(vk::Instance instance, StarWindow &window) const
@@ -82,7 +94,7 @@ common::FrameTracker::Setup EngineInitPolicy::getFrameInFlightTrackingSetup(core
 std::vector<service::Service> EngineInitPolicy::getAdditionalDeviceServices()
 {
     std::vector<service::Service> services = std::vector<service::Service>(5);
-    services[0] = createSwapchainService(); 
+    services[0] = createSwapchainService();
     services[1] = star::policy::DefaultEngineInitPolicy::createCommandOrderService();
     services[2] = star::policy::DefaultEngineInitPolicy::createIOService();
     services[3] = star::policy::DefaultEngineInitPolicy::createScreenCaptureService();

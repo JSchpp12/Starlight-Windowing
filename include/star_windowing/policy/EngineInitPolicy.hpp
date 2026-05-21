@@ -18,7 +18,10 @@ class EngineInitPolicy
 {
   public:
     explicit EngineInitPolicy(WindowingContext &winContext) : m_winContext(winContext){};
-
+    EngineInitPolicy(WindowingContext &winContext, int overrideRenderingDeviceIndex)
+        : m_winContext(winContext), m_overrideRenderingDeviceIndex(std::move(overrideRenderingDeviceIndex))
+    {
+    }
     core::RenderingInstance createRenderingInstance(std::string appName);
 
     core::device::StarDevice createNewDevice(core::RenderingInstance &renderingInstance,
@@ -36,6 +39,7 @@ class EngineInitPolicy
 
   private:
     WindowingContext &m_winContext;
+    std::optional<int> m_overrideRenderingDeviceIndex{std::nullopt};
     uint8_t m_maxNumFramesInFlight = 0;
 
     RenderingSurface createRenderingSurface(vk::Instance instance, StarWindow &window) const;
