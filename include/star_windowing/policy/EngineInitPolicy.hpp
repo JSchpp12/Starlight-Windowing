@@ -17,9 +17,21 @@ namespace star::windowing
 class EngineInitPolicy
 {
   public:
-    explicit EngineInitPolicy(WindowingContext &winContext) : m_winContext(winContext){};
+    using LoadAdditionalServices = std::function<std::vector<service::Service>()>;
+
+    explicit EngineInitPolicy(WindowingContext &winContext) : m_winContext(winContext) {};
+    EngineInitPolicy(WindowingContext &winContext, LoadAdditionalServices addServiceLoader)
+        : m_winContext(winContext), m_addServiceLoader(std::move(addServiceLoader))
+    {
+    }
     EngineInitPolicy(WindowingContext &winContext, int overrideRenderingDeviceIndex)
         : m_winContext(winContext), m_overrideRenderingDeviceIndex(std::move(overrideRenderingDeviceIndex))
+    {
+    }
+    EngineInitPolicy(WindowingContext &winContext, LoadAdditionalServices addServiceLoader,
+                     int overrideRenderingDeviceIndex)
+        : m_winContext(winContext), m_addServiceLoader(std::move(addServiceLoader)),
+          m_overrideRenderingDeviceIndex(std::move(overrideRenderingDeviceIndex))
     {
     }
     core::RenderingInstance createRenderingInstance(std::string appName);
@@ -39,6 +51,7 @@ class EngineInitPolicy
 
   private:
     WindowingContext &m_winContext;
+    LoadAdditionalServices m_addServiceLoader;
     std::optional<int> m_overrideRenderingDeviceIndex{std::nullopt};
     uint8_t m_maxNumFramesInFlight = 0;
 

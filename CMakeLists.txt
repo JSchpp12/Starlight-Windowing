@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(starlight_windowing
     DESCRIPTION "Library containing windowing support for starlight"
     LANGUAGES CXX
-    VERSION 1.0.1
+    VERSION 1.0.2
 )
 
 option(STARLIGHT_WINDOWING_BUILD_SHARED "Build as shared library" OFF)
@@ -31,7 +31,6 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/StarWindow.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/PresentationCommands.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/RenderingSurface.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderer.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/Keys.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/KeyStates.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/event/KeyPress.hpp

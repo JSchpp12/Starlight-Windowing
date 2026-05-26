@@ -12,6 +12,33 @@
 
 namespace star::windowing
 {
+
+static std::vector<star::Handle> CreateSemaphores(star::core::device::DeviceContext &context, const size_t &numToCreate, bool isTimeline )
+{
+    auto semaphores = std::vector<Handle>(numToCreate);
+
+    for (size_t i{0}; i < (size_t)numToCreate; i++)
+    {
+        {
+            auto request = isTimeline ? core::device::manager::SemaphoreRequest(uint64_t{0})
+                                      : core::device::manager::SemaphoreRequest();
+
+            context.getEventBus().emit(core::device::system::event::ManagerRequest(
+                common::HandleTypeRegistry::instance()
+                    .getType(core::device::manager::GetSemaphoreEventTypeName)
+                    .value(),
+                std::move(request), semaphores[i]));
+        }
+
+        if (!semaphores[i].isInitialized())
+        {
+            STAR_THROW("failed to create semaphores for a frame");
+        }
+    }
+
+    return semaphores;
+}
+
 static void ApplyRenderBarriersPost(const StarCommandBuffer &cb, const star::common::FrameTracker &fTracker,
                                     const StarTextures::Texture &renderToImage) noexcept
 {
@@ -62,33 +89,30 @@ static void ApplyRenderBarriersPrep(const StarCommandBuffer &cb, const star::com
 
 star::windowing::SwapChainRenderer::SwapChainRenderer(WindowingContext *winContext, vk::SwapchainKHR swapChain,
                                                       core::device::DeviceContext &context,
-                                                      const uint8_t &numFramesInFlight,
+
                                                       std::vector<std::shared_ptr<StarObject>> objects,
                                                       std::shared_ptr<std::vector<Light>> lights,
                                                       std::shared_ptr<StarCamera> camera)
-    : DefaultRenderer(context, numFramesInFlight, std::move(lights), std::move(camera), std::move(objects)),
-      m_winContext(winContext), m_swapChain(std::move(swapChain)), numFramesInFlight(numFramesInFlight),
-      device(&context)
+    : DefaultRenderer(context, std::move(lights), std::move(camera), std::move(objects)), m_winContext(winContext),
+      m_swapChain(std::move(swapChain)), device(&context)
 {
 }
 
 star::windowing::SwapChainRenderer::SwapChainRenderer(
     WindowingContext *winContext, vk::SwapchainKHR swapChain, core::device::DeviceContext &context,
-    const uint8_t &numFramesInFlight, std::vector<std::shared_ptr<StarObject>> objects,
+    std::vector<std::shared_ptr<StarObject>> objects,
     std::shared_ptr<ManagerController::RenderResource::Buffer> lightData,
     std::shared_ptr<ManagerController::RenderResource::Buffer> lightListData,
     std::shared_ptr<ManagerController::RenderResource::Buffer> cameraData)
-    : DefaultRenderer(context, numFramesInFlight, std::move(objects), std::move(lightData), std::move(lightListData),
+    : DefaultRenderer(context, std::move(objects), std::move(lightData), std::move(lightListData),
                       std::move(cameraData)),
-      m_winContext(winContext), m_swapChain(std::move(swapChain)), numFramesInFlight(numFramesInFlight),
-      device(&context)
+      m_winContext(winContext), m_swapChain(std::move(swapChain)), device(&context)
 {
 }
 
 star::windowing::SwapChainRenderer::SwapChainRenderer(SwapChainRenderer &&other)
     : DefaultRenderer(std::move(other)), m_winContext(other.m_winContext), m_swapChain(std::move(other.m_swapChain)),
-      device(other.device), numFramesInFlight(std::move(other.numFramesInFlight)),
-      m_presentationSharedDeps(std::move(other.m_presentationSharedDeps)),
+      device(other.device), m_presentationSharedDeps(std::move(other.m_presentationSharedDeps)),
       m_presentationCommands(std::move(other.m_presentationCommands)),
       m_presentationQueueToUse(std::move(other.m_presentationQueueToUse)), m_cmdBus(other.m_cmdBus)
 {
@@ -120,8 +144,6 @@ void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
     auto &context = static_cast<core::device::DeviceContext &>(c);
     const size_t numSwapChainImages = context.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain).size();
 
-    this->imageAvailableSemaphores =
-        CreateSemaphores(context, context.frameTracker().getSetup().getNumUniqueTargetFramesForFinalization(), true);
     const auto binaryDoneSemaphores = CreateSemaphores(context, numSwapChainImages, false);
     rawBinaryRenderDoneSemaphores.resize(binaryDoneSemaphores.size());
     for (size_t i{0}; i < binaryDoneSemaphores.size(); i++)
@@ -257,23 +279,27 @@ vk::Semaphore star::windowing::SwapChainRenderer::submitBuffer(
         mySemaphore = cmd.getReply().get().signaledSemaphore;
         mySemaphoreSignalValue = cmd.getReply().get().toSignalValue;
 
-        assert(cmd.getReply().get().edges != nullptr &&
-               "No neighbor command buffers were registered. At least one is expected");
-        assert(cmd.getReply().get().edges->size() + dataWaitPoints.size() < 10 &&
-               "Static size container for wait semaphore info only expects a max of 10");
-        for (const auto &edge : *cmd.getReply().get().edges)
+        // update neighbor wait information
+        if (cmd.getReply().get().edges != nullptr)
         {
-            if (edge.consumer == m_commandBuffer)
+            assert(cmd.getReply().get().edges != nullptr &&
+                   "No neighbor command buffers were registered. At least one is expected");
+            assert(cmd.getReply().get().edges->size() + dataWaitPoints.size() < 10 &&
+                   "Static size container for wait semaphore info only expects a max of 10");
+            for (const auto &edge : *cmd.getReply().get().edges)
             {
-                auto nCmd = star::command_order::GetPassInfo{edge.producer};
-                m_cmdBus->submit(nCmd);
+                if (edge.consumer == m_commandBuffer)
+                {
+                    auto nCmd = star::command_order::GetPassInfo{edge.producer};
+                    m_cmdBus->submit(nCmd);
 
-                waitInfo[waitInfoCount]
-                    .setSemaphore(nCmd.getReply().get().signaledSemaphore)
-                    .setValue(nCmd.getReply().get().toSignalValue)
-                    .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+                    waitInfo[waitInfoCount]
+                        .setSemaphore(nCmd.getReply().get().signaledSemaphore)
+                        .setValue(nCmd.getReply().get().toSignalValue)
+                        .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
 
-                waitInfoCount++;
+                    waitInfoCount++;
+                }
             }
         }
     }
@@ -405,33 +431,6 @@ void star::windowing::SwapChainRenderer::recordCommandBuffer(star::StarCommandBu
     commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()).end();
 }
 
-std::vector<star::Handle> star::windowing::SwapChainRenderer::CreateSemaphores(
-    star::core::device::DeviceContext &context, const uint8_t &numToCreate, const bool &isTimeline)
-{
-    auto semaphores = std::vector<Handle>(numToCreate);
-
-    for (size_t i{0}; i < (size_t)numToCreate; i++)
-    {
-        {
-            auto request = isTimeline ? core::device::manager::SemaphoreRequest(uint64_t{0})
-                                      : core::device::manager::SemaphoreRequest();
-
-            context.getEventBus().emit(core::device::system::event::ManagerRequest(
-                common::HandleTypeRegistry::instance()
-                    .getType(core::device::manager::GetSemaphoreEventTypeName)
-                    .value(),
-                std::move(request), semaphores[i]));
-        }
-
-        if (!semaphores[i].isInitialized())
-        {
-            STAR_THROW("failed to create semaphores for a frame");
-        }
-    }
-
-    return semaphores;
-}
-
 void star::windowing::SwapChainRenderer::recreateSwapChain()
 {
     assert(m_winContext != nullptr);
@@ -450,20 +449,4 @@ void star::windowing::SwapChainRenderer::recreateSwapChain()
 
 void star::windowing::SwapChainRenderer::prepareRenderingContext(core::device::DeviceContext &context)
 {
-    addSemaphoresToRenderingContext(context);
-}
-
-void star::windowing::SwapChainRenderer::addSemaphoresToRenderingContext(core::device::DeviceContext &context)
-{
-    for (const auto &semaphore : this->graphicsDoneSemaphoresExternalUse)
-    {
-        m_renderingContext.recordDependentSemaphores.manualInsert(
-            semaphore, context.getSemaphoreManager().get(semaphore)->semaphore);
-    }
-
-    for (const auto &semaphore : this->imageAvailableSemaphores)
-    {
-        m_renderingContext.recordDependentSemaphores.manualInsert(
-            semaphore, context.getSemaphoreManager().get(semaphore)->semaphore);
-    }
 }

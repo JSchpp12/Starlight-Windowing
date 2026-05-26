@@ -16,11 +16,11 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
   public:
     SwapChainRenderer() = default;
     SwapChainRenderer(WindowingContext *winContext, vk::SwapchainKHR swapChain, core::device::DeviceContext &context,
-                      const uint8_t &numFramesInFlight, std::vector<std::shared_ptr<StarObject>> objects,
-                      std::shared_ptr<std::vector<Light>> lights, std::shared_ptr<StarCamera> camera);
+                      std::vector<std::shared_ptr<StarObject>> objects, std::shared_ptr<std::vector<Light>> lights,
+                      std::shared_ptr<StarCamera> camera);
 
     SwapChainRenderer(WindowingContext *winContext, vk::SwapchainKHR swapchain, core::device::DeviceContext &context,
-                      const uint8_t &numFramesInFlight, std::vector<std::shared_ptr<StarObject>> objects,
+                      std::vector<std::shared_ptr<StarObject>> objects,
                       std::shared_ptr<ManagerController::RenderResource::Buffer> lightData,
                       std::shared_ptr<ManagerController::RenderResource::Buffer> lightListData,
                       std::shared_ptr<ManagerController::RenderResource::Buffer> cameraData);
@@ -37,11 +37,6 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     virtual void frameUpdate(common::IDeviceContext &context) override;
 
-    const std::vector<Handle> &getSemaphores() const
-    {
-        return imageAvailableSemaphores;
-    }
-
   protected:
     vk::SwapchainKHR m_swapChain;
     PresentationCommands::RecordDependencies m_presentationSharedDeps;
@@ -52,13 +47,13 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     const core::CommandBus *m_cmdBus = nullptr;
 
     // tracker for which frame is being processed of the available permitted frames
-    uint8_t previousFrame = 0, numFramesInFlight = 0;
+    uint8_t previousFrame = 0;
 
     bool frameBufferResized =
         false; // explicit declaration of resize, used if driver does not trigger VK_ERROR_OUT_OF_DATE
 
     // Sync obj storage
-    std::vector<Handle> imageAvailableSemaphores;
+
     std::vector<vk::Semaphore> rawBinaryRenderDoneSemaphores;
     std::vector<Handle> graphicsDoneSemaphoresExternalUse;
 
@@ -90,14 +85,6 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     /// </summary>
     virtual void recreateSwapChain();
 
-    /// <summary>
-    /// Create semaphores that are going to be used to sync rendering and presentation queues
-    /// </summary>
-    static std::vector<Handle> CreateSemaphores(core::device::DeviceContext &context, const uint8_t &numToCreate,
-                                                const bool &isTimeline);
-
     void prepareRenderingContext(core::device::DeviceContext &context);
-
-    void addSemaphoresToRenderingContext(core::device::DeviceContext &context);
 };
 } // namespace star::windowing

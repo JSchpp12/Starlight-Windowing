@@ -100,6 +100,17 @@ std::vector<service::Service> EngineInitPolicy::getAdditionalDeviceServices()
     services[3] = star::policy::DefaultEngineInitPolicy::createScreenCaptureService();
     services[4] = star::policy::DefaultEngineInitPolicy::createSceneLoaderService();
 
+    if (m_addServiceLoader)
+    {
+        auto addServices = m_addServiceLoader(); 
+        services.reserve(addServices.size()); 
+
+        for (size_t i{ 0 }; i < addServices.size(); i++)
+        {
+            services.push_back(std::move(addServices[i]));
+        }
+    }
+
     return services;
 }
 
