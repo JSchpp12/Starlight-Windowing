@@ -5,7 +5,7 @@
 namespace star::windowing::event
 {
 KeyRelease::KeyRelease(int key, int scancode, int mods)
-    : common::IEvent(common::HandleTypeRegistry::instance().registerType(GetKeyReleaseEventTypeName)),
+    : common::IEvent(common::HandleTypeRegistry::instance().registerType(GetUniqueTypeName())),
       m_key(std::move(key)), m_scancode(std::move(scancode)), m_mods(std::move(mods))
 {
 }

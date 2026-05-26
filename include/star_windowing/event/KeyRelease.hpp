@@ -5,10 +5,22 @@
 
 namespace star::windowing::event
 {
-inline constexpr std::string_view GetKeyReleaseEventTypeName = "star::windowing::keyrelease";
+namespace key_release
+{
+constexpr const char *GetUniqueTypeName()
+{
+    return "WinEvtKRel";
+};
+}
+
 class KeyRelease : public common::IEvent
 {
   public:
+    static constexpr std::string_view GetUniqueTypeName()
+    {
+        return key_release::GetUniqueTypeName();
+    }
+
     KeyRelease(int key, int scancode, int mods);
 
     int &getKey()

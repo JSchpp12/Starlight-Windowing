@@ -27,7 +27,7 @@ template <typename T> class HandleKeyReleasePolicy
     void registerListener(common::EventBus &eventBus)
     {
         eventBus.subscribe(
-            common::HandleTypeRegistry::instance().registerType(event::GetKeyReleaseEventTypeName),
+            common::HandleTypeRegistry::instance().registerType(event::key_release::GetUniqueTypeName()),
             common::SubscriberCallbackInfo{std::bind(&HandleKeyReleasePolicy<T>::eventCallback, this,
                                                      std::placeholders::_1, std::placeholders::_2),
                                            std::bind(&HandleKeyReleasePolicy<T>::getHandleForEventBus, this),
