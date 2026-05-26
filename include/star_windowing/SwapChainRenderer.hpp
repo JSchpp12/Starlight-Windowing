@@ -53,9 +53,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
         false; // explicit declaration of resize, used if driver does not trigger VK_ERROR_OUT_OF_DATE
 
     // Sync obj storage
-
     std::vector<vk::Semaphore> rawBinaryRenderDoneSemaphores;
-    std::vector<Handle> graphicsDoneSemaphoresExternalUse;
 
     virtual star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 

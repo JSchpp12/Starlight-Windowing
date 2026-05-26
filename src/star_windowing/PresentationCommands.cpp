@@ -22,22 +22,6 @@ void PresentationCommands::prepRender(core::device::DeviceContext &context)
     registerListener(context.getEventBus());
 }
 
-// Handle PresentationCommands::registerWithManager(core::device::DeviceContext &context)
-// {
-//     return context.getManagerCommandBuffer().submit(
-//         {.recordBufferCallback = std::bind(&PresentationCommands::recordCommandBuffer, this, std::placeholders::_1,
-//                                            std::placeholders::_2, std::placeholders::_3),
-//          .order = Command_Buffer_Order::presentation,
-//          .orderIndex = Command_Buffer_Order_Index::first,
-//          .type = Queue_Type::Tpresent,
-//          .waitStage = {},
-//          .willBeSubmittedEachFrame = true,
-//          .recordOnce = false,
-//          .beforeBufferSubmissionCallback =
-//              std::bind(&PresentationCommands::beforeRecordCallback, this, std::placeholders::_1)},
-//         context.getCurrentFrameIndex());
-// }
-
 void PresentationCommands::registerListener(common::EventBus &eventBus)
 {
     if (!common::HandleTypeRegistry::instance().contains(event::RenderReadyForFinalization::GetUniqueTypeName()))
@@ -45,13 +29,13 @@ void PresentationCommands::registerListener(common::EventBus &eventBus)
         common::HandleTypeRegistry::instance().registerType(event::RenderReadyForFinalization::GetUniqueTypeName());
     }
 
-    eventBus.subscribe(
-        common::HandleTypeRegistry::instance().getTypeGuaranteedExist(event::RenderReadyForFinalization::GetUniqueTypeName()),
-        {[this](const common::IEvent &e, bool &keepAlive) { this->eventCallback(e, keepAlive); },
-         [this]() -> Handle * { return this->getHandleForUpdate(); },
-         [this](const Handle &noLongerNeededHandle) {
-             this->notificationFromEventBusHandleDelete(noLongerNeededHandle);
-         }});
+    eventBus.subscribe(common::HandleTypeRegistry::instance().getTypeGuaranteedExist(
+                           event::RenderReadyForFinalization::GetUniqueTypeName()),
+                       {[this](const common::IEvent &e, bool &keepAlive) { this->eventCallback(e, keepAlive); },
+                        [this]() -> Handle * { return this->getHandleForUpdate(); },
+                        [this](const Handle &noLongerNeededHandle) {
+                            this->notificationFromEventBusHandleDelete(noLongerNeededHandle);
+                        }});
 }
 
 void PresentationCommands::eventCallback(const star::common::IEvent &e, bool &keepAlive)
