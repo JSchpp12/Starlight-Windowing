@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(starlight_windowing
     DESCRIPTION "Library containing windowing support for starlight"
     LANGUAGES CXX
-    VERSION 1.0.3
+    VERSION 1.0.4
 )
 
 option(STARLIGHT_WINDOWING_BUILD_SHARED "Build as shared library" OFF)
