@@ -21,9 +21,7 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
 
     SwapChainRenderer(WindowingContext *winContext, vk::SwapchainKHR swapchain, core::device::DeviceContext &context,
                       std::vector<std::shared_ptr<StarObject>> objects,
-                      std::shared_ptr<ManagerController::RenderResource::Buffer> lightData,
-                      std::shared_ptr<ManagerController::RenderResource::Buffer> lightListData,
-                      std::shared_ptr<ManagerController::RenderResource::Buffer> cameraData);
+                      std::shared_ptr<core::renderer::FrameData> frameData);
 
     virtual ~SwapChainRenderer() = default;
     SwapChainRenderer(const SwapChainRenderer &) = delete;

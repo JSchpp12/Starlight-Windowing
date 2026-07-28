@@ -96,18 +96,17 @@ star::windowing::SwapChainRenderer::SwapChainRenderer(WindowingContext *winConte
     : DefaultRenderer(context, std::move(lights), std::move(camera), std::move(objects)), m_winContext(winContext),
       m_swapChain(std::move(swapChain)), device(&context)
 {
+    m_renderTargetProvider = nullptr;
 }
 
 star::windowing::SwapChainRenderer::SwapChainRenderer(
     WindowingContext *winContext, vk::SwapchainKHR swapChain, core::device::DeviceContext &context,
     std::vector<std::shared_ptr<StarObject>> objects,
-    std::shared_ptr<ManagerController::RenderResource::Buffer> lightData,
-    std::shared_ptr<ManagerController::RenderResource::Buffer> lightListData,
-    std::shared_ptr<ManagerController::RenderResource::Buffer> cameraData)
-    : DefaultRenderer(context, std::move(objects), std::move(lightData), std::move(lightListData),
-                      std::move(cameraData)),
+    std::shared_ptr<core::renderer::FrameData> frameData)
+    : DefaultRenderer(context, std::move(objects), std::move(frameData)),
       m_winContext(winContext), m_swapChain(std::move(swapChain)), device(&context)
 {
+    m_renderTargetProvider = nullptr;
 }
 
 star::windowing::SwapChainRenderer::SwapChainRenderer(SwapChainRenderer &&other)
@@ -156,9 +155,7 @@ void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
         context.getEventBus(), context.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
 
     if (m_presentationQueueToUse == nullptr)
-    {
         STAR_THROW("Failed to acquire a presentation queue from engine");
-    }
 
     m_presentationCommands.init(&m_presentationSharedDeps, &m_swapChain, m_presentationQueueToUse);
     m_presentationCommands.prepRender(context);
