@@ -53,7 +53,8 @@ class SwapChainRenderer : public star::core::renderer::DefaultRenderer
     // Sync obj storage
     std::vector<vk::Semaphore> rawBinaryRenderDoneSemaphores;
 
-    virtual star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
+    virtual std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride>
+    getSubmissionOverride() override;
 
     vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) const;
 

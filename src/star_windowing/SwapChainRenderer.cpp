@@ -13,7 +13,8 @@
 namespace star::windowing
 {
 
-static std::vector<star::Handle> CreateSemaphores(star::core::device::DeviceContext &context, const size_t &numToCreate, bool isTimeline )
+static std::vector<star::Handle> CreateSemaphores(star::core::device::DeviceContext &context, const size_t &numToCreate,
+                                                  bool isTimeline)
 {
     auto semaphores = std::vector<Handle>(numToCreate);
 
@@ -99,12 +100,12 @@ star::windowing::SwapChainRenderer::SwapChainRenderer(WindowingContext *winConte
     m_renderTargetProvider = nullptr;
 }
 
-star::windowing::SwapChainRenderer::SwapChainRenderer(
-    WindowingContext *winContext, vk::SwapchainKHR swapChain, core::device::DeviceContext &context,
-    std::vector<std::shared_ptr<StarObject>> objects,
-    std::shared_ptr<core::renderer::FrameData> frameData)
-    : DefaultRenderer(context, std::move(objects), std::move(frameData)),
-      m_winContext(winContext), m_swapChain(std::move(swapChain)), device(&context)
+star::windowing::SwapChainRenderer::SwapChainRenderer(WindowingContext *winContext, vk::SwapchainKHR swapChain,
+                                                      core::device::DeviceContext &context,
+                                                      std::vector<std::shared_ptr<StarObject>> objects,
+                                                      std::shared_ptr<core::renderer::FrameData> frameData)
+    : DefaultRenderer(context, std::move(objects), std::move(frameData)), m_winContext(winContext),
+      m_swapChain(std::move(swapChain)), device(&context)
 {
     m_renderTargetProvider = nullptr;
 }
@@ -162,6 +163,9 @@ void star::windowing::SwapChainRenderer::prepRender(common::IDeviceContext &c)
 
     m_cmdBus = &context.getCmdBus();
 
+    // Presentation must wait on all prior commands before presenting.
+    m_config.waitStage = vk::PipelineStageFlagBits::eAllCommands;
+
     DefaultRenderer::prepRender(c);
 }
 
@@ -178,20 +182,13 @@ void star::windowing::SwapChainRenderer::frameUpdate(common::IDeviceContext &con
     prepareRenderingContext(c);
 }
 
-star::core::device::manager::ManagerCommandBuffer::Request star::windowing::SwapChainRenderer::getCommandBufferRequest()
+std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride> star::windowing::
+    SwapChainRenderer::getSubmissionOverride()
 {
-    return core::device::manager::ManagerCommandBuffer::Request{
-        .recordBufferCallback = std::bind(&SwapChainRenderer::recordCommandBuffer, this, std::placeholders::_1,
-                                          std::placeholders::_2, std::placeholders::_3),
-        .order = Command_Buffer_Order::main_render_pass,
-        .orderIndex = Command_Buffer_Order_Index::first,
-        .type = Queue_Type::Tgraphics,
-        .waitStage = vk::PipelineStageFlagBits::eAllCommands,
-        .willBeSubmittedEachFrame = true,
-        .recordOnce = false,
-        .overrideBufferSubmissionCallback =
-            std::bind(&SwapChainRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2,
-                      std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6)};
+    star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride overrideFn =
+        std::bind(&SwapChainRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2,
+                  std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6);
+    return overrideFn;
 }
 
 vk::SurfaceFormatKHR star::windowing::SwapChainRenderer::chooseSwapSurfaceFormat(
