@@ -47,6 +47,8 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/HandleKeyReleasePolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/service/SwapChainControllerService.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/Swapchain.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderPhase.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderPhaseProvider.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/ListenForRequestForSwapChainPolicy.hpp
 )
 
@@ -58,7 +60,6 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/StarWindow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/PresentationCommands.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/RenderingSurface.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/SwapChainRenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/Keys.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/KeyStates.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/event/KeyPress.cpp
@@ -74,6 +75,8 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/ListenForRequestForSwapChainPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/InteractivityBus.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/BasicCamera.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/SwapChainRenderPhase.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/SwapChainRenderPhaseProvider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/service/SwapChainControllerService.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/Swapchain.cpp
 )
