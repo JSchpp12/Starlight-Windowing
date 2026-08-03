@@ -1,6 +1,5 @@
 #pragma once
 
-#include "star_windowing/SwapChainRenderer.hpp"
 #include "star_windowing/WindowingContext.hpp"
 
 #include <star_common/Handle.hpp>

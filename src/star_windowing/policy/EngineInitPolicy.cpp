@@ -1,6 +1,5 @@
 #include "star_windowing/policy/EngineInitPolicy.hpp"
 
-#include "star_windowing/SwapChainRenderer.hpp"
 #include "star_windowing/service/SwapChainControllerService.hpp"
 
 #include <starlight/common/ConfigFile.hpp>
