@@ -97,8 +97,8 @@ if (MSVC)
     )
 endif()
 
-if(TARGET starlight AND STAR_VULKAN_PCH_HEADER)
-    target_precompile_headers(${PROJECT_NAME} REUSE_FROM starlight)
+if(COMMAND star_add_pch)
+    star_add_pch(${PROJECT_NAME})
 endif()
 target_include_directories(${PROJECT_NAME}
     PUBLIC 
