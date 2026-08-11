@@ -86,6 +86,20 @@ add_library(${PROJECT_NAME} ${LIBTYPE}
     ${${PROJECT_NAME}_SOURCES}
 )
 
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
+
+if (MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        /bigobj
+        /MP
+        /EHsc
+        /Zc:__cplusplus
+    )
+endif()
+
+if(TARGET starlight AND STAR_VULKAN_PCH_HEADER)
+    target_precompile_headers(${PROJECT_NAME} REUSE_FROM starlight)
+endif()
 target_include_directories(${PROJECT_NAME}
     PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
