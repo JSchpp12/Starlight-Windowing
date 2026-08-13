@@ -19,13 +19,6 @@ namespace star::windowing
 class SwapChainRenderPhaseProvider;
 class WindowingContext;
 
-/// Runtime half of the presented (swapchain) renderer. Built once by a
-/// SwapChainRenderPhaseProvider; extends DefaultRenderPhase with the per-frame
-/// presentation submit override, a final-target-image-indexed color attachment,
-/// and swapchain lifecycle (recreate). One-shot setup -- presentation queue and
-/// PresentationCommands, the per-present-image binary render-done semaphores,
-/// and render-target creation via RenderTargets::forPresentation -- lives on
-/// the provider.
 class SwapChainRenderPhase : public star::core::renderer::DefaultRenderPhase
 {
   public:

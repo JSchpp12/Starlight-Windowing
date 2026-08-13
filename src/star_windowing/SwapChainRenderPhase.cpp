@@ -69,10 +69,6 @@ void SwapChainRenderPhase::frameUpdate(star::common::IDeviceContext &context)
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
     const size_t ii = static_cast<size_t>(c.frameTracker().getCurrent().getFrameInFlightIndex());
 
-    // Properly submit this renderer through the command-order service each frame
-    // (mirrors HeadlessRenderPhase::frameUpdate). Without this TriggerPass the
-    // pass's signaled semaphore is never set, leaving an invalid semaphore that
-    // propagates as a wait into the manager command buffer's submit.
     c.getCmdBus().submit(star::command_order::TriggerPass()
                              .setTimelineSemaphore(m_timelineSemaphores[ii])
                              .setSignalValue(c.frameTracker().getCurrent().getNumTimesFrameProcessed() + 1)
@@ -88,7 +84,7 @@ void SwapChainRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandB
     commandBuffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
 
     StarTextures::Texture *image = m_renderingContext.recordDependentImage.get(
-        m_renderToImages[frameTracker.getCurrent().getFinalTargetImageIndex()]);
+        m_renderTargets.colorHandles()[frameTracker.getCurrent().getFinalTargetImageIndex()]);
 
     ApplyRenderBarriersPrep(commandBuffer, frameTracker, *image);
     this->DefaultRenderPhase::recordCommands(commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()),
@@ -114,7 +110,7 @@ vk::RenderingAttachmentInfo SwapChainRenderPhase::prepareDynamicRenderingInfoCol
 
     vk::RenderingAttachmentInfoKHR colorAttachmentInfo{};
     colorAttachmentInfo.imageView =
-        m_renderingContext.recordDependentImage.get(m_renderToImages[index])->getImageView();
+        m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index])->getImageView();
     colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
     colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
     colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
