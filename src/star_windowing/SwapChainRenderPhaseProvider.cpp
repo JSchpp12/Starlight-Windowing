@@ -9,6 +9,7 @@
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/core/renderer/DefaultRenderPhase.hpp>
 #include <starlight/core/renderer/RenderingContext.hpp>
 
 #include <cassert>
@@ -268,7 +269,8 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
                     .setImage(depthTexture.getVulkanImage())
                     .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                     .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-                    .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
+                    .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+                                      vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
                     .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
                     .setSubresourceRange(vk::ImageSubresourceRange()
                                              .setAspectMask(vk::ImageAspectFlagBits::eDepth)
@@ -317,18 +319,20 @@ std::unique_ptr<star::core::renderer::RenderPhase> SwapChainRenderPhaseProvider:
     phase->m_swapChain = m_swapChain;
     phase->m_winContext = m_winContext;
     phase->device = &context;
-
     phase->m_presentationCommands.init(&phase->m_presentationSharedDeps, &phase->m_swapChain,
                                        phase->m_presentationQueueToUse);
     phase->m_presentationCommands.prepRender(context);
-
     phase->m_cmdBus = &context.getCmdBus();
 
-    // --- shared base prep: transfer state, render groups, command-buffer request
-    // (wired to SwapChainRenderPhase::getSubmissionOverride -> submitBuffer), render
-    // targets via createRenderTargets -> RenderTargets::forPresentation, and the
-    // descriptor-pool waiter ---
-    buildCore(phase.get(), context);
+    star::core::renderer::DefaultRenderPhase::Builder(context)
+        .setObjects(std::move(m_objects))
+        .setFrameData(m_frameData)
+        .setOwnsFrameData(m_createdFrameData)
+        .setConfig(m_config)
+        .setRenderTargetsFactory([&context, this](star::core::renderer::RenderingContext &renderingContext) {
+            return this->createRenderTargets(context, renderingContext);
+        })
+        .buildInto(*phase);
 
     return phase;
 }
