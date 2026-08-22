@@ -1,4 +1,4 @@
-#include "star_windowing/SwapChainRenderPhaseProvider.hpp"
+﻿#include "star_windowing/SwapChainRenderPhaseProvider.hpp"
 
 #include "star_windowing/SwapChainRenderPhase.hpp"
 #include "star_windowing/WindowingContext.hpp"
@@ -130,14 +130,6 @@ static std::vector<Handle> RegisterTextures(core::device::DeviceContext &context
     return handles;
 }
 
-static star::StarQueue *GetPresentationQueue(core::device::DeviceContext &device)
-{
-    auto *presentationQueueToUse = core::helper::GetEngineDefaultQueue(
-        device.getEventBus(), device.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
-    assert(presentationQueueToUse != nullptr);
-    return presentationQueueToUse;
-}
-
 star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvider::createRenderTargets(
     star::core::device::DeviceContext &device, star::core::renderer::RenderingContext &renderingContext)
 {
@@ -147,10 +139,8 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
         vk::Extent3D().setWidth(winResolution.width).setHeight(winResolution.height).setDepth(1);
 
     vk::Format format = GetColorAttachmentFormat(device, m_winContext);
-    // get the presentation queue to use
-    auto *presentationQueueToUse = GetPresentationQueue(device);
-
     // get images in the newly created swapchain
+    std::vector<vk::ImageMemoryBarrier2> swapBarriers;
     for (vk::Image &image : device.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain))
     {
         auto builder =
@@ -170,31 +160,27 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
         newRenderToImages.emplace_back(builder.build());
         newRenderToImages.back().setImageLayout(vk::ImageLayout::ePresentSrcKHR);
 
-        auto oneTimeSetup = core::helper::BeginSingleTimeCommands(device.getDevice(), device.getEventBus(),
-                                                                  device.getManagerCommandBuffer().m_manager,
-                                                                  star::Queue_Type::Tpresent);
-
-        vk::ImageMemoryBarrier2 barrier[1]{vk::ImageMemoryBarrier2()
-                                               .setOldLayout(vk::ImageLayout::eUndefined)
-                                               .setNewLayout(vk::ImageLayout::ePresentSrcKHR)
-                                               .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                                               .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                                               .setImage(newRenderToImages.back().getVulkanImage())
-                                               .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                                               .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
-                                               .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
-                                               .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
-                                               .setSubresourceRange(vk::ImageSubresourceRange()
-                                                                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                                        .setBaseMipLevel(0)
-                                                                        .setLevelCount(1)
-                                                                        .setBaseArrayLayer(0)
-                                                                        .setLayerCount(1))};
-
-        oneTimeSetup.buffer().pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barrier));
-
-        core::helper::EndSingleTimeCommands(*presentationQueueToUse, std::move(oneTimeSetup));
+        swapBarriers.push_back(vk::ImageMemoryBarrier2()
+                                   .setOldLayout(vk::ImageLayout::eUndefined)
+                                   .setNewLayout(vk::ImageLayout::ePresentSrcKHR)
+                                   .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                   .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                   .setImage(newRenderToImages.back().getVulkanImage())
+                                   .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                   .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                                   .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
+                                   .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                                   .setSubresourceRange(vk::ImageSubresourceRange()
+                                                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                            .setBaseMipLevel(0)
+                                                            .setLevelCount(1)
+                                                            .setBaseArrayLayer(0)
+                                                            .setLayerCount(1)));
     }
+
+    core::helper::command_buffer::SingleTimeCommands(device, star::Queue_Type::Tpresent, [&](vk::CommandBuffer cmd) {
+        cmd.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(swapBarriers));
+    });
 
     // create depth images
     vk::Format depthFormat =
@@ -252,39 +238,36 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
                                     .setMinLod(0.0f)
                                     .setMaxLod(0.0f));
 
+        std::vector<vk::ImageMemoryBarrier2> depthBarriers{newRenderToImages.size()};
         for (uint8_t i = 0; i < newRenderToImages.size(); i++)
         {
             star::StarTextures::Texture depthTexture = builder.build();
 
-            auto oneTimeSetup = core::helper::BeginSingleTimeCommands(device.getDevice(), device.getEventBus(),
-                                                                      device.getManagerCommandBuffer().m_manager,
-                                                                      star::Queue_Type::Tpresent);
-
-            const vk::ImageMemoryBarrier2 barrier[1]{
-                vk::ImageMemoryBarrier2()
-                    .setOldLayout(vk::ImageLayout::eUndefined)
-                    .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-                    .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                    .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                    .setImage(depthTexture.getVulkanImage())
-                    .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                    .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-                    .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
-                                      vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
-                    .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
-                    .setSubresourceRange(vk::ImageSubresourceRange()
-                                             .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                             .setBaseMipLevel(0)
-                                             .setLevelCount(1)
-                                             .setBaseArrayLayer(0)
-                                             .setLayerCount(1))};
-
-            oneTimeSetup.buffer().pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barrier));
-
-            core::helper::EndSingleTimeCommands(*presentationQueueToUse, std::move(oneTimeSetup));
+            depthBarriers[i] = vk::ImageMemoryBarrier2()
+                                   .setOldLayout(vk::ImageLayout::eUndefined)
+                                   .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+                                   .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                   .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                   .setImage(depthTexture.getVulkanImage())
+                                   .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                   .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+                                   .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+                                                     vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
+                                   .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
+                                   .setSubresourceRange(vk::ImageSubresourceRange()
+                                                            .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                                            .setBaseMipLevel(0)
+                                                            .setLevelCount(1)
+                                                            .setBaseArrayLayer(0)
+                                                            .setLayerCount(1));
 
             depthTextures.emplace_back(std::move(depthTexture));
         }
+
+        core::helper::command_buffer::SingleTimeCommands(
+            device, star::Queue_Type::Tpresent, [&](vk::CommandBuffer cmd) {
+                cmd.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(depthBarriers));
+            });
     }
 
     auto colorHandles = RegisterTextures(device, renderingContext, std::move(newRenderToImages));
