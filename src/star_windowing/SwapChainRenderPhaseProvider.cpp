@@ -1,4 +1,4 @@
-﻿#include "star_windowing/SwapChainRenderPhaseProvider.hpp"
+#include "star_windowing/SwapChainRenderPhaseProvider.hpp"
 
 #include "star_windowing/SwapChainRenderPhase.hpp"
 #include "star_windowing/WindowingContext.hpp"
@@ -144,7 +144,7 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
     for (vk::Image &image : device.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain))
     {
         auto builder =
-            star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(), image)
+            star::StarTextures::Texture::Builder(device.getDevice(), image)
                 .setSizeInfo(star::StarTextures::Texture::CalculateSize(format, resolution, 1, vk::ImageType::e2D, 1),
                              resolution)
                 .setBaseFormat(format)
@@ -193,8 +193,7 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
         const auto &props = device.getDevice().getPhysicalDevice().getProperties();
 
         auto builder =
-            star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(),
-                                                 device.getDevice().getAllocator().get())
+            star::StarTextures::Texture::Builder(device.getDevice())
                 .setCreateInfo(
                     Allocator::AllocationBuilder()
                         .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
