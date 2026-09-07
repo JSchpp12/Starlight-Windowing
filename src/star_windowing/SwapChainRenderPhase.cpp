@@ -43,8 +43,10 @@ static void ApplyRenderBarriersPost(const StarCommandBuffer &cb, const star::com
 static void ApplyRenderBarriersPrep(const StarCommandBuffer &cb, const star::common::FrameTracker &fTracker,
                                     const StarTextures::Texture &renderToImage) noexcept
 {
+    // A reacquired presentable image may be in UNDEFINED or PRESENT_SRC. The attachment is cleared, so discard prior
+    // contents and transition from UNDEFINED.
     vk::ImageMemoryBarrier2 barriers[1]{vk::ImageMemoryBarrier2()
-                                            .setOldLayout(renderToImage.getImageLayout())
+                                            .setOldLayout(vk::ImageLayout::eUndefined)
                                             .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
                                             .setSubresourceRange(vk::ImageSubresourceRange()
                                                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)
@@ -211,6 +213,10 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
     {
         STAR_THROW("Failed to submit command buffer");
     }
+
+    // The submitted command buffer leaves the acquired image ready for present.
+    m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[presentImageIndex])
+        ->setImageLayout(vk::ImageLayout::ePresentSrcKHR);
 
     m_presentationSharedDeps.acquiredSwapChainImageIndex = frameTracker.getCurrent().getFinalTargetImageIndex();
 
