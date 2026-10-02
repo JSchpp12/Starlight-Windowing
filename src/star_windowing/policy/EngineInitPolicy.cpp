@@ -94,13 +94,14 @@ common::FrameTracker::Setup EngineInitPolicy::getFrameInFlightTrackingSetup(core
 
 std::vector<service::Service> EngineInitPolicy::getAdditionalDeviceServices()
 {
-    std::vector<service::Service> services = std::vector<service::Service>(6);
+    std::vector<service::Service> services = std::vector<service::Service>(7);
     services[0] = createSwapchainService();
     services[1] = star::policy::DefaultEngineInitPolicy::createCommandOrderService();
     services[2] = star::policy::DefaultEngineInitPolicy::createIOService();
     services[3] = star::policy::DefaultEngineInitPolicy::createShaderService();
     services[4] = star::policy::DefaultEngineInitPolicy::createScreenCaptureService();
     services[5] = star::policy::DefaultEngineInitPolicy::createSceneLoaderService();
+    services[6] = star::policy::DefaultEngineInitPolicy::createPipelineCommandService();
 
     if (m_addServiceLoader)
     {
