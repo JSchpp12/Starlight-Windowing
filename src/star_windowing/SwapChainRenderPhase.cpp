@@ -43,8 +43,10 @@ static void ApplyRenderBarriersPost(const StarCommandBuffer &cb, const star::com
 static void ApplyRenderBarriersPrep(const StarCommandBuffer &cb, const star::common::FrameTracker &fTracker,
                                     const StarTextures::Texture &renderToImage) noexcept
 {
+    // A reacquired presentable image may be in UNDEFINED or PRESENT_SRC. The attachment is cleared, so discard prior
+    // contents and transition from UNDEFINED.
     vk::ImageMemoryBarrier2 barriers[1]{vk::ImageMemoryBarrier2()
-                                            .setOldLayout(renderToImage.getImageLayout())
+                                            .setOldLayout(vk::ImageLayout::eUndefined)
                                             .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
                                             .setSubresourceRange(vk::ImageSubresourceRange()
                                                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)
@@ -69,10 +71,6 @@ void SwapChainRenderPhase::frameUpdate(star::common::IDeviceContext &context)
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
     const size_t ii = static_cast<size_t>(c.frameTracker().getCurrent().getFrameInFlightIndex());
 
-    // Properly submit this renderer through the command-order service each frame
-    // (mirrors HeadlessRenderPhase::frameUpdate). Without this TriggerPass the
-    // pass's signaled semaphore is never set, leaving an invalid semaphore that
-    // propagates as a wait into the manager command buffer's submit.
     c.getCmdBus().submit(star::command_order::TriggerPass()
                              .setTimelineSemaphore(m_timelineSemaphores[ii])
                              .setSignalValue(c.frameTracker().getCurrent().getNumTimesFrameProcessed() + 1)
@@ -88,7 +86,7 @@ void SwapChainRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandB
     commandBuffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
 
     StarTextures::Texture *image = m_renderingContext.recordDependentImage.get(
-        m_renderToImages[frameTracker.getCurrent().getFinalTargetImageIndex()]);
+        m_renderTargets.colorHandles()[frameTracker.getCurrent().getFinalTargetImageIndex()]);
 
     ApplyRenderBarriersPrep(commandBuffer, frameTracker, *image);
     this->DefaultRenderPhase::recordCommands(commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()),
@@ -114,7 +112,7 @@ vk::RenderingAttachmentInfo SwapChainRenderPhase::prepareDynamicRenderingInfoCol
 
     vk::RenderingAttachmentInfoKHR colorAttachmentInfo{};
     colorAttachmentInfo.imageView =
-        m_renderingContext.recordDependentImage.get(m_renderToImages[index])->getImageView();
+        m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index])->getImageView();
     colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
     colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
     colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
@@ -215,6 +213,10 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
     {
         STAR_THROW("Failed to submit command buffer");
     }
+
+    // The submitted command buffer leaves the acquired image ready for present.
+    m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[presentImageIndex])
+        ->setImageLayout(vk::ImageLayout::ePresentSrcKHR);
 
     m_presentationSharedDeps.acquiredSwapChainImageIndex = frameTracker.getCurrent().getFinalTargetImageIndex();
 
