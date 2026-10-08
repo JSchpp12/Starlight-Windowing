@@ -11,6 +11,7 @@
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/renderer/DefaultRenderPhase.hpp>
 #include <starlight/core/renderer/RenderingContext.hpp>
+#include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 
 #include <cassert>
 #include <vector>
@@ -207,6 +208,11 @@ std::unique_ptr<star::core::renderer::RenderPhase> SwapChainRenderPhaseProvider:
             return this->createRenderTargets(context, renderingContext);
         })
         .buildInto(*phase);
+
+    // Announce this presentation phase as the main graphics renderer so
+    // presentation-only consumers (e.g. the gui controller service) can attach
+    // their overlay to it. Emitted after buildInto so its render targets exist.
+    context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{phase.get()});
 
     return phase;
 }

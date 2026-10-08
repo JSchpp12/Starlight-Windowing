@@ -1,9 +1,6 @@
 #include "star_windowing/policy/EngineInitPolicy.hpp"
 
-#include "star_windowing/service/SwapChainControllerService.hpp"
-
 #include <starlight/common/ConfigFile.hpp>
-#include <starlight/policy/DefaultEngineInitPolicy.hpp>
 
 #include <GLFW/glfw3.h>
 
@@ -17,6 +14,7 @@ core::RenderingInstance EngineInitPolicy::createRenderingInstance(std::string ap
     extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
     core::RenderingInstance instance{appName, extensions};
 
+    m_winContext.instance = instance.getVulkanInstance();
     m_winContext.window = createWindow();
     m_winContext.surface = createRenderingSurface(instance.getVulkanInstance(), m_winContext.window);
 
@@ -94,27 +92,7 @@ common::FrameTracker::Setup EngineInitPolicy::getFrameInFlightTrackingSetup(core
 
 std::vector<service::Service> EngineInitPolicy::getAdditionalDeviceServices()
 {
-    std::vector<service::Service> services = std::vector<service::Service>(7);
-    services[0] = createSwapchainService();
-    services[1] = star::policy::DefaultEngineInitPolicy::createCommandOrderService();
-    services[2] = star::policy::DefaultEngineInitPolicy::createIOService();
-    services[3] = star::policy::DefaultEngineInitPolicy::createShaderService();
-    services[4] = star::policy::DefaultEngineInitPolicy::createScreenCaptureService();
-    services[5] = star::policy::DefaultEngineInitPolicy::createSceneLoaderService();
-    services[6] = star::policy::DefaultEngineInitPolicy::createPipelineCommandService();
-
-    if (m_addServiceLoader)
-    {
-        auto addServices = m_addServiceLoader();
-        services.reserve(addServices.size());
-
-        for (size_t i{0}; i < addServices.size(); i++)
-        {
-            services.push_back(std::move(addServices[i]));
-        }
-    }
-
-    return services;
+    return m_engineServices.takeAll();
 }
 
 void EngineInitPolicy::init(uint8_t requestedNumFramesInFlight)
@@ -129,10 +107,5 @@ void EngineInitPolicy::getNumSupportedSwapchainImages(core::device::StarDevice &
 
     min = (uint8_t)result.surfaceCapabilities.minImageCount;
     max = (uint8_t)result.surfaceCapabilities.maxImageCount;
-}
-
-service::Service EngineInitPolicy::createSwapchainService()
-{
-    return service::Service{SwapChainControllerService{m_winContext}};
 }
 } // namespace star::windowing

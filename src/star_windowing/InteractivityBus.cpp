@@ -10,6 +10,7 @@
 namespace star::windowing
 {
 common::EventBus *InteractivityBus::m_deviceEventBus = nullptr;
+const IGuiCaptureState *InteractivityBus::m_captureState = nullptr;
 
 void InteractivityBus::Init(star::common::EventBus *deviceEventBus, WindowingContext *winContext)
 {
@@ -24,6 +25,9 @@ void InteractivityBus::Init(star::common::EventBus *deviceEventBus, WindowingCon
 
 void InteractivityBus::GlfwCallbackMouseMovement(GLFWwindow *window, double xpos, double ypos)
 {
+    if (m_captureState != nullptr && m_captureState->wantsMouseInput())
+        return;
+
     assert(m_deviceEventBus != nullptr);
 
     m_deviceEventBus->emit(event::MouseMovement{xpos, ypos});
@@ -31,6 +35,9 @@ void InteractivityBus::GlfwCallbackMouseMovement(GLFWwindow *window, double xpos
 
 void InteractivityBus::GlfwCallbackMouseButton(GLFWwindow *window, int button, int action, int mods)
 {
+    if (m_captureState != nullptr && m_captureState->wantsMouseInput())
+        return;
+
     assert(m_deviceEventBus != nullptr);
 
     m_deviceEventBus->emit(event::MouseButton{button, action, mods});
@@ -38,6 +45,9 @@ void InteractivityBus::GlfwCallbackMouseButton(GLFWwindow *window, int button, i
 
 void InteractivityBus::GlfwKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
+    if (m_captureState != nullptr && m_captureState->wantsKeyboardInput())
+        return;
+
     assert(m_deviceEventBus != nullptr);
 
     if (action == GLFW_PRESS)

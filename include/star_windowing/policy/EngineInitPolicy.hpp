@@ -7,12 +7,12 @@
 #include <starlight/core/device/IStartupDeviceRequirementsProvider.hpp>
 #include <starlight/core/renderer/RendererBase.hpp>
 #include <starlight/enums/Enums.hpp>
+#include <starlight/service/EngineServices.hpp>
 #include <starlight/service/Service.hpp>
 
 #include <star_common/FrameTracker.hpp>
 #include <star_common/Renderer.hpp>
 
-#include <functional>
 #include <memory>
 #include <optional>
 #include <set>
@@ -23,33 +23,14 @@ namespace star::windowing
 class EngineInitPolicy
 {
   public:
-    using LoadAdditionalServices = std::function<std::vector<service::Service>()>;
     using StartupDeviceRequirementsProvider = core::device::IStartupDeviceRequirementsProvider;
 
-    explicit EngineInitPolicy(WindowingContext &winContext) : m_winContext(winContext) {};
-    EngineInitPolicy(WindowingContext &winContext, LoadAdditionalServices addServiceLoader)
-        : m_winContext(winContext), m_addServiceLoader(std::move(addServiceLoader))
-    {
-    }
-    EngineInitPolicy(WindowingContext &winContext, int overrideRenderingDeviceIndex)
-        : m_winContext(winContext), m_overrideRenderingDeviceIndex(std::move(overrideRenderingDeviceIndex))
-    {
-    }
-    explicit EngineInitPolicy(WindowingContext &winContext,
-                              std::unique_ptr<StartupDeviceRequirementsProvider> startupDeviceRequirements)
-        : m_winContext(winContext), m_startupDeviceRequirements(std::move(startupDeviceRequirements))
-    {
-    }
-    EngineInitPolicy(WindowingContext &winContext, int overrideRenderingDeviceIndex,
-                     std::unique_ptr<StartupDeviceRequirementsProvider> startupDeviceRequirements)
-        : m_winContext(winContext), m_overrideRenderingDeviceIndex(std::move(overrideRenderingDeviceIndex)),
+    EngineInitPolicy(WindowingContext &winContext, service::EngineServices &engineServices,
+                     std::optional<int> overrideRenderingDeviceIndex = std::nullopt,
+                     std::unique_ptr<StartupDeviceRequirementsProvider> startupDeviceRequirements = {})
+        : m_winContext(winContext), m_engineServices(engineServices),
+          m_overrideRenderingDeviceIndex(overrideRenderingDeviceIndex),
           m_startupDeviceRequirements(std::move(startupDeviceRequirements))
-    {
-    }
-    EngineInitPolicy(WindowingContext &winContext, LoadAdditionalServices addServiceLoader,
-                     int overrideRenderingDeviceIndex)
-        : m_winContext(winContext), m_addServiceLoader(std::move(addServiceLoader)),
-          m_overrideRenderingDeviceIndex(std::move(overrideRenderingDeviceIndex))
     {
     }
 
@@ -84,7 +65,7 @@ class EngineInitPolicy
 
   private:
     WindowingContext &m_winContext;
-    LoadAdditionalServices m_addServiceLoader;
+    service::EngineServices &m_engineServices;
     std::optional<int> m_overrideRenderingDeviceIndex{std::nullopt};
     std::unique_ptr<StartupDeviceRequirementsProvider> m_startupDeviceRequirements;
     bool m_startupRequirementsConsumed{false};
@@ -97,7 +78,5 @@ class EngineInitPolicy
     std::vector<const char *> getRequiredDisplayExtensions() const;
 
     void getNumSupportedSwapchainImages(core::device::StarDevice &device, uint8_t &min, uint8_t &max) const;
-
-    service::Service createSwapchainService();
 };
 } // namespace star::windowing
