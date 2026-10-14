@@ -16,6 +16,7 @@
 #include <starlight/maker/texture/MakeTexture.hpp>
 
 #include <cassert>
+#include <string>
 #include <vector>
 
 namespace star::windowing
@@ -115,6 +116,7 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
     for (vk::Image &image : device.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain))
     {
         auto builder = star::maker::texture::MakeTexture(device.getDevice(), image)
+                           .setDebugName("SwapchainImage_" + std::to_string(newRenderToImages.size()))
                            .setSizeInfo(star::StarTextures::TextureFactory::CalculateSize(format, resolution, 1,
                                                                                           vk::ImageType::e2D, 1),
                                         resolution)

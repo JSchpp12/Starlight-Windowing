@@ -52,8 +52,7 @@ void CreatePerImageRenderDoneSemaphores(star::core::device::DeviceContext &conte
             STAR_THROW("Failed to create per-image render-done semaphores for the ImGui overlay");
         }
 
-        resource.renderDoneSemaphore =
-            context.getGraphicsManagers().semaphoreManager->get(semaphoreHandle)->semaphore;
+        resource.renderDoneSemaphore = context.getGraphicsManagers().semaphoreManager->get(semaphoreHandle)->semaphore;
     }
 }
 
@@ -406,7 +405,7 @@ void ImGuiRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandBuffe
     // finalization phase's per-image render-done semaphore before executing.
     const vk::ImageMemoryBarrier2 prep = MakeLayoutBarrier(
         resource.image, vk::ImageLayout::ePresentSrcKHR, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits2::eColorAttachmentWrite,
+        vk::AccessFlagBits2::eNone,
         vk::AccessFlagBits2::eColorAttachmentWrite | vk::AccessFlagBits2::eColorAttachmentRead,
         vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::PipelineStageFlagBits2::eColorAttachmentOutput);
     cb.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prep));
@@ -428,10 +427,10 @@ void ImGuiRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandBuffe
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb);
     cb.endRendering();
 
-    const vk::ImageMemoryBarrier2 post = MakeLayoutBarrier(
-        resource.image, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR,
-        vk::AccessFlagBits2::eColorAttachmentWrite, vk::AccessFlagBits2::eNone,
-        vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::PipelineStageFlagBits2::eNone);
+    const vk::ImageMemoryBarrier2 post =
+        MakeLayoutBarrier(resource.image, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR,
+                          vk::AccessFlagBits2::eColorAttachmentWrite, vk::AccessFlagBits2::eNone,
+                          vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::PipelineStageFlagBits2::eNone);
     cb.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(post));
 
     cb.end();
@@ -510,9 +509,10 @@ vk::Semaphore ImGuiRenderPhase::submitBuffer(StarCommandBuffer &buffer, const st
                                                    .setValue(0)
                                                    .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
 
-    const vk::SubmitInfo2 submitInfo =
-        vk::SubmitInfo2().setWaitSemaphoreInfos(m_waitInfos).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
-            signalInfo);
+    const vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
+                                           .setWaitSemaphoreInfos(m_waitInfos)
+                                           .setCommandBufferInfos(cbInfo)
+                                           .setSignalSemaphoreInfos(signalInfo);
 
     const vk::Result result = m_presentQueue->getVulkanQueue().submit2(1, &submitInfo, m_submitFences[frameInFlight]);
     if (result != vk::Result::eSuccess)
