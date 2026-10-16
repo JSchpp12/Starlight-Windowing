@@ -6,13 +6,6 @@ project(starlight_windowing
     VERSION 1.0.5
 )
 
-option(STARLIGHT_WINDOWING_BUILD_SHARED "Build as shared library" OFF)
-
-set(LIBTYPE STATIC)
-if(STARLIGHT_WINDOWING_BUILD_SHARED)
-    set(LIBTYPE SHARED)
-endif()
-
 find_package(starlight_common CONFIG REQUIRED)
 if(NOT TARGET Starlight::starlight)
     # Fallback: when building windowing standalone, use the installed/config package
@@ -96,7 +89,7 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiRenderPhaseProvider.cpp
 )
 
-add_library(${PROJECT_NAME} ${LIBTYPE}
+add_library(${PROJECT_NAME} STATIC
     ${${PROJECT_NAME}_HEADERS}
     ${${PROJECT_NAME}_SOURCES}
 )
