@@ -7,12 +7,9 @@
 
 namespace star::windowing
 {
-/// Builds the services required by presenting (windowed) configurations.
-///
-/// The services are appended to the given engine services storage, which is
-/// expected to already contain the core engine services. This keeps a single
-/// source of truth for the core set while allowing windowing to own what
-/// presentation requires.
+
+/// @brief Builds the services required by presenting (windowed) configurations. The services are appended to the given
+/// engine services storage.
 class EngineServicesFactory
 {
   public:

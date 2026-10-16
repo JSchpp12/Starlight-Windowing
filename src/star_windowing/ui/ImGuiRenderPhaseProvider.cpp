@@ -1,7 +1,6 @@
 #include "star_windowing/ui/ImGuiRenderPhaseProvider.hpp"
 
 #include "star_windowing/WindowingContext.hpp"
-#include "star_windowing/ui/ImGuiFactory.hpp"
 #include "star_windowing/ui/ImGuiRenderPhase.hpp"
 
 #include <starlight/core/Exceptions.hpp>
@@ -80,13 +79,10 @@ std::unique_ptr<star::core::renderer::RenderPhase> ImGuiRenderPhaseProvider::bui
     renderingTargetInfo.colorAttachmentFormats = {colorFormat};
 
     return ImGuiRenderPhase::Builder(context)
-        .setWindowingContext(m_winContext)
         .setRenderingTargetInfo(std::move(renderingTargetInfo))
         .setSwapchainTextures(std::move(swapchainTextures))
         .setPresentQueue(presentQueue)
-        .setIniFilename(ResolveIniFile(m_config.iniFilename))
         .setEnabled(m_config.enabled)
-        .setStyleScale(m_config.styleScale)
         .setFrameCallbacks(m_frameCallbacks)
         .setCaptureStateCallback(m_captureStateCallback)
         .buildUnique();

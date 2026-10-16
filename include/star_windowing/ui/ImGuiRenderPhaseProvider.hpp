@@ -20,17 +20,11 @@ namespace star::windowing
 class WindowingContext;
 
 /// @brief Builds the presentation-only ImGui overlay phase.
-///
-/// The provider is created by the gui controller service once the main
-/// graphics renderer has been registered, and reuses that renderer's swapchain
-/// image views. The service queues it on the scene during prepRender, so it is
-/// built after the finalization phase it depends on.
 class ImGuiRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvider
 {
   public:
     ImGuiRenderPhaseProvider(WindowingContext *winContext, vk::SwapchainKHR swapchain,
-                             const star::core::renderer::RenderPhase *finalizationPhase,
-                             GuiDefinition config = {});
+                             const star::core::renderer::RenderPhase *finalizationPhase, GuiDefinition config = {});
     virtual ~ImGuiRenderPhaseProvider() = default;
 
     ImGuiRenderPhaseProvider(const ImGuiRenderPhaseProvider &) = delete;

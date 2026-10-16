@@ -49,7 +49,9 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderPhase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderPhaseProvider.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/ListenForRequestForSwapChainPolicy.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/GuiFactory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiFactory.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/InitImGuiVulkanBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiRenderPhase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiRenderPhaseProvider.hpp
 )
@@ -84,6 +86,7 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/service/GuiControllerService.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/command/CreateGui.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/Swapchain.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/GuiFactory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiFactory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiRenderPhase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiRenderPhaseProvider.cpp

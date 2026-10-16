@@ -1,6 +1,6 @@
 #include "star_windowing/ui/ImGuiRenderPhase.hpp"
 
-#include "star_windowing/WindowingContext.hpp"
+#include "star_windowing/ui/GuiFactory.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -8,21 +8,13 @@
 #include <starlight/core/device/managers/Fence.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
-#include <starlight/core/helper/queue/QueueHelpers.hpp>
-#include <starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp>
-#include <starlight/event/DescriptorPoolReady.hpp>
 #include <starlight/wrappers/graphics/StarCommandBuffer.hpp>
 #include <starlight/wrappers/graphics/StarTextures/Texture.hpp>
-
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_vulkan.h>
 
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -82,78 +74,6 @@ std::vector<vk::Fence> CreateSubmitFences(star::core::device::DeviceContext &con
     return fences;
 }
 
-vk::DescriptorPool CreateImGuiDescriptorPool(vk::Device device)
-{
-    constexpr uint32_t kSampledImages = 64;
-    constexpr uint32_t kSamplers = 2;
-
-    vk::DescriptorPoolSize sizes[2] = {
-        {vk::DescriptorType::eSampledImage, kSampledImages},
-        {vk::DescriptorType::eSampler, kSamplers},
-    };
-
-    vk::DescriptorPoolCreateInfo info{};
-    // The ImGui backend frees its texture descriptor sets individually on
-    // shutdown, which requires the free-descriptor-set flag. The pool is owned
-    // by the phase (not the engine-wide pool) so this capability stays local to
-    // the overlay.
-    info.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-    info.maxSets = kSampledImages + kSamplers;
-    info.poolSizeCount = 2;
-    info.pPoolSizes = sizes;
-
-    return device.createDescriptorPool(info);
-}
-
-/// One-shot initializer for the ImGui Vulkan backend. It is invoked by the
-/// engine's DescriptorPoolReady event through the same waiter DescriptorRecipe
-/// uses, so the backend's descriptor sets are created once the engine signals
-/// that its descriptor pools are allocated. The pool itself is owned by the
-/// phase because the ImGui backend frees individual texture sets on shutdown.
-struct InitImGuiVulkanBackend
-{
-    star::core::device::DeviceContext *context{nullptr};
-    vk::Instance instance{};
-    vk::Format swapchainFormat{};
-    uint32_t imageCount{0};
-    vk::DescriptorPool descriptorPool{};
-
-    int operator()()
-    {
-        assert(context != nullptr);
-
-        auto *presentQueue = star::core::helper::GetEngineDefaultQueue(
-            context->getEventBus(), context->getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
-        if (presentQueue == nullptr)
-            STAR_THROW("ImGui overlay could not acquire the engine presentation queue");
-
-        auto &device = context->getDevice();
-        VkFormat format = static_cast<VkFormat>(swapchainFormat);
-        VkPipelineRenderingCreateInfoKHR pipelineRenderingInfo{};
-        pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-        pipelineRenderingInfo.colorAttachmentCount = 1;
-        pipelineRenderingInfo.pColorAttachmentFormats = &format;
-
-        ImGui_ImplVulkan_InitInfo initInfo{};
-        initInfo.ApiVersion = device.getPhysicalDevice().getProperties().apiVersion;
-        initInfo.Instance = static_cast<VkInstance>(instance);
-        initInfo.PhysicalDevice = static_cast<VkPhysicalDevice>(device.getPhysicalDevice());
-        initInfo.Device = static_cast<VkDevice>(device.getVulkanDevice());
-        initInfo.QueueFamily = presentQueue->getParentQueueFamilyIndex();
-        initInfo.Queue = static_cast<VkQueue>(presentQueue->getVulkanQueue());
-        initInfo.DescriptorPool = static_cast<VkDescriptorPool>(descriptorPool);
-        initInfo.DescriptorPoolSize = 0;
-        initInfo.MinImageCount = std::max<uint32_t>(imageCount, 2);
-        initInfo.ImageCount = imageCount;
-        initInfo.UseDynamicRendering = true;
-        initInfo.PipelineInfoMain.PipelineRenderingCreateInfo = pipelineRenderingInfo;
-
-        if (!ImGui_ImplVulkan_Init(&initInfo))
-            STAR_THROW("Failed to initialize the ImGui Vulkan backend");
-
-        return 0;
-    }
-};
 } // namespace
 
 static vk::ImageMemoryBarrier2 MakeLayoutBarrier(const vk::Image &image, const vk::ImageLayout &oldLayout,
@@ -189,12 +109,6 @@ ImGuiRenderPhase::Builder::Builder(star::core::device::DeviceContext &context) :
 {
 }
 
-ImGuiRenderPhase::Builder &ImGuiRenderPhase::Builder::setWindowingContext(WindowingContext *winContext)
-{
-    m_winContext = winContext;
-    return *this;
-}
-
 ImGuiRenderPhase::Builder &ImGuiRenderPhase::Builder::setRenderingTargetInfo(
     star::core::renderer::RenderingTargetInfo renderingTargetInfo)
 {
@@ -215,21 +129,9 @@ ImGuiRenderPhase::Builder &ImGuiRenderPhase::Builder::setPresentQueue(StarQueue 
     return *this;
 }
 
-ImGuiRenderPhase::Builder &ImGuiRenderPhase::Builder::setIniFilename(std::string iniFilename)
-{
-    m_iniFilename = std::move(iniFilename);
-    return *this;
-}
-
 ImGuiRenderPhase::Builder &ImGuiRenderPhase::Builder::setEnabled(bool enabled)
 {
     m_enabled = enabled;
-    return *this;
-}
-
-ImGuiRenderPhase::Builder &ImGuiRenderPhase::Builder::setStyleScale(float styleScale)
-{
-    m_styleScale = styleScale;
     return *this;
 }
 
@@ -247,8 +149,6 @@ ImGuiRenderPhase::Builder &ImGuiRenderPhase::Builder::setCaptureStateCallback(Ca
 
 std::unique_ptr<ImGuiRenderPhase> ImGuiRenderPhase::Builder::buildUnique()
 {
-    assert(m_winContext != nullptr && "ImGuiRenderPhase::Builder requires a WindowingContext");
-
     auto phase = std::make_unique<ImGuiRenderPhase>(m_renderingTargetInfo);
     ImGuiRenderPhase &target = *phase;
 
@@ -262,48 +162,11 @@ std::unique_ptr<ImGuiRenderPhase> ImGuiRenderPhase::Builder::buildUnique()
         const auto baseExtent = texture->getBaseExtent();
         target.m_extent = vk::Extent2D{baseExtent.width, baseExtent.height};
     }
-    target.m_iniFilename = std::move(m_iniFilename);
     target.m_enabled = m_enabled;
     target.m_frameCallbacks = std::move(m_frameCallbacks);
     target.m_captureStateCallback = std::move(m_captureStateCallback);
     target.m_presentQueue = m_presentQueue;
     target.m_device = m_context.getDevice().getVulkanDevice();
-
-    const size_t imageCount = target.m_perFifResources.size();
-
-    // ---- ImGui context + backends ----
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-
-    ImGuiIO &io = ImGui::GetIO();
-    io.IniFilename = target.m_iniFilename.empty() ? nullptr : target.m_iniFilename.c_str();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    ImGui::StyleColorsDark();
-    if (m_styleScale != 1.0f)
-    {
-        ImGui::GetStyle().ScaleAllSizes(m_styleScale);
-    }
-
-    // install_callbacks=true chains to the GLFW callbacks star installed in
-    // InteractivityBus::Init (which runs earlier), so star's events keep flowing
-    // while ImGui additionally consumes char/scroll/focus input.
-    if (!ImGui_ImplGlfw_InitForVulkan(m_winContext->window.getGLFWWindow(), /*install_callbacks=*/true))
-        STAR_THROW("Failed to initialize the ImGui GLFW backend");
-
-    target.m_descriptorPool = CreateImGuiDescriptorPool(m_context.getDevice().getVulkanDevice());
-
-    // The backend allocates its descriptor sets from the phase-owned pool, so
-    // defer its Vulkan init until DescriptorPoolReady fires (after the load
-    // phase). The context and GLFW backend above do not depend on the pool and
-    // stay eager.
-    star::core::waiter::one_shot::CreateDescriptorsOnEventPolicy<InitImGuiVulkanBackend>::Builder(
-        m_context.getEventBus())
-        .setEventType(star::common::HandleTypeRegistry::instance().registerType(
-            star::event::DescriptorPoolReady::GetUniqueTypeName()))
-        .setPolicy(InitImGuiVulkanBackend{&m_context, m_winContext->instance,
-                                          target.m_renderingTargetInfo.colorAttachmentFormats.front(),
-                                          static_cast<uint32_t>(imageCount), target.m_descriptorPool})
-        .buildShared();
 
     CreatePerImageRenderDoneSemaphores(m_context, target.m_perFifResources);
     target.m_submitFences = CreateSubmitFences(m_context, m_context.frameTracker().getSetup().getNumFramesInFlight());
@@ -312,21 +175,6 @@ std::unique_ptr<ImGuiRenderPhase> ImGuiRenderPhase::Builder::buildUnique()
     // keeps submitBuffer allocation-free in the steady state.
     target.m_waitInfos.reserve(1 + 8);
 
-    // ---- command buffer ----
-    // end_of_frame, on the presentation queue (same family the finalization
-    // phase renders/submits on, so no ownership transfers are needed for the
-    // layout transitions). A submission override is used so the present-wait
-    // semaphore is dedicated to the acquired swapchain image: the override
-    // waits on the finalization phase's per-image render-done semaphore, then
-    // signals this phase's per-image render-done semaphore which the manager
-    // propagates to the present operation. Using the default (non-override)
-    // submission would make the manager return its per-frame-in-flight
-    // completion semaphore as the present wait, which violates the swapchain
-    // semaphore reuse contract (binary semaphores used with
-    // vkQueuePresentKHR may only be re-signaled after their image was
-    // re-acquired -- VUID-vkQueueSubmit-pSignalSemaphores-00067). Index
-    // 'fourth' keeps clear of the screen-capture copy ('first') and the
-    // image-metric copy ('fifth').
     namespace ph = std::placeholders;
     target.m_commandBuffer = m_context.getManagerCommandBuffer().submit(
         star::core::device::manager::ManagerCommandBuffer::Request{
@@ -366,9 +214,7 @@ void ImGuiRenderPhase::frameUpdate(star::common::IDeviceContext & /*context*/)
     // The base RenderPhase::frameUpdate is intentionally not called: it would
     // try to update render groups and query the command-order DAG, neither of
     // which this phase participates in.
-    ImGui_ImplGlfw_NewFrame();
-    ImGui_ImplVulkan_NewFrame();
-    ImGui::NewFrame();
+    GuiFactory::BeginFrame();
 
     if (m_enabled)
     {
@@ -378,14 +224,16 @@ void ImGuiRenderPhase::frameUpdate(star::common::IDeviceContext & /*context*/)
         }
     }
 
-    ImGui::Render();
+    GuiFactory::EndFrame();
 
     // Publish capture state to the gui controller service, which owns the one
     // authoritative capture decision used to gate star input events.
     if (m_captureStateCallback)
     {
-        const ImGuiIO &io = ImGui::GetIO();
-        m_captureStateCallback(io.WantCaptureKeyboard, io.WantCaptureMouse);
+        bool keyboard = false;
+        bool mouse = false;
+        GuiFactory::CaptureState(keyboard, mouse);
+        m_captureStateCallback(keyboard, mouse);
     }
 }
 
@@ -424,7 +272,7 @@ void ImGuiRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandBuffe
     renderingInfo.pColorAttachments = &colorAttachment;
 
     cb.beginRendering(renderingInfo);
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb);
+    GuiFactory::RenderDrawData(cb);
     cb.endRendering();
 
     const vk::ImageMemoryBarrier2 post =
@@ -521,20 +369,6 @@ vk::Semaphore ImGuiRenderPhase::submitBuffer(StarCommandBuffer &buffer, const st
     }
 
     return m_perFifResources[imageIndex].renderDoneSemaphore;
-}
-
-void ImGuiRenderPhase::cleanupRender(star::common::IDeviceContext &context)
-{
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-
-    auto &deviceContext = static_cast<star::core::device::DeviceContext &>(context);
-    if (m_descriptorPool != VK_NULL_HANDLE)
-    {
-        deviceContext.getDevice().getVulkanDevice().destroyDescriptorPool(m_descriptorPool);
-        m_descriptorPool = VK_NULL_HANDLE;
-    }
 }
 
 star::core::renderer::RenderingTargetInfo ImGuiRenderPhase::getRenderTargetInfo() const

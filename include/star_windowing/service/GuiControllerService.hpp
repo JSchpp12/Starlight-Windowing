@@ -10,7 +10,10 @@
 #include <starlight/policy/command/ListenFor.hpp>
 #include <starlight/service/InitParameters.hpp>
 
+#include <vulkan/vulkan.hpp>
+
 #include <functional>
+#include <string>
 
 namespace star
 {
@@ -24,27 +27,29 @@ namespace star::core
 {
 class CommandBus;
 }
+namespace star::core::device
+{
+class StarDevice;
+namespace manager
+{
+struct GraphicsContainer;
+}
+} // namespace star::core::device
+namespace star::core::renderer
+{
+class RenderPhase;
+}
 
 namespace star::windowing
 {
-class WindowingContext;
+struct WindowingContext;
 class ImGuiRenderPhase;
 
 template <typename T>
-using ListenForCreateGui =
-    star::policy::command::ListenFor<T, star::windowing::CreateGui, star::windowing::create_gui::GetTypeName,
-                                     &T::onCreateGui>;
+using ListenForCreateGui = star::policy::command::ListenFor<T, star::windowing::CreateGui,
+                                                            star::windowing::create_gui::GetTypeName, &T::onCreateGui>;
 
-/// @brief Owns the windowed ImGui overlay lifecycle and the single authoritative
-/// input-capture decision.
-///
-/// The service is created for presenting configurations and:
-///  * listens for command::CreateGui from the application (scene + draw lambda),
-///  * waits for event::RegisterMainGraphicsRenderer to learn which phase it
-///    should overlay,
-///  * creates and queues the ImGuiRenderPhaseProvider during prepRender, and
-///  * owns the WantCaptureKeyboard/WantCaptureMouse state which InteractivityBus
-///    consults before forwarding input events to star.
+/// @brief Owns the windowed ImGui overlay lifecycle and the single authoritative input-capture decision.
 class GuiControllerService : public IGuiCaptureState,
                              private star::policy::ListenForRegisterMainGraphicsRenderPolicy<GuiControllerService>
 {
@@ -75,20 +80,31 @@ class GuiControllerService : public IGuiCaptureState,
     void onRegisterMainGraphics(const star::event::RegisterMainGraphicsRenderer &event, bool &keepAlive);
 
   private:
+    // Members grouped by size, largest first, so the layout stays compact and
+    // predictable instead of interleaving pointers with value types.
+
+    // Large value members.
+    std::function<void()> m_draw;
+    GuiDefinition m_config{};
+    std::string m_imguiIniFile;
+
+    // Pointer / handle-sized members.
     WindowingContext *m_winContext = nullptr;
     star::common::EventBus *m_eventBus = nullptr;
     star::core::CommandBus *m_cmdBus = nullptr;
     star::StarScene *m_scene = nullptr;
-
-    GuiDefinition m_config{};
-    std::function<void()> m_draw;
-    Handle m_guiPhaseHandle;
+    star::core::device::StarDevice *m_device = nullptr;
+    star::core::device::manager::GraphicsContainer *m_graphicsManagers = nullptr;
     ImGuiRenderPhase *m_renderPhase = nullptr;
+    vk::DescriptorPool m_imguiDescriptorPool{};
+    Handle m_guiPhaseHandle;
+    ListenForCreateGui<GuiControllerService> m_onCreateGui;
 
+    // Byte-sized flags.
     bool m_wantsKeyboard = false;
     bool m_wantsMouse = false;
-
-    ListenForCreateGui<GuiControllerService> m_onCreateGui;
+    bool m_imguiContextInitialized = false;
+    bool m_imguiVulkanInitialized = false;
 
     void initListeners();
     void cleanupListeners();

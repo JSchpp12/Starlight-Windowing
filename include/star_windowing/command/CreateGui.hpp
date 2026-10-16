@@ -17,18 +17,12 @@ namespace create_gui
 {
 inline constexpr const char *GetTypeName()
 {
-    return "guiCreate";
+    return "swGuiCreate";
 }
 } // namespace create_gui
 
 /// @brief Asks the gui controller service to attach (or update) the ImGui
 /// overlay for the given scene.
-///
-/// The command carries the scene the overlay should be added to and the
-/// lambda which emits the widgets. The service turns that into an
-/// ImGuiRenderPhaseProvider once the main graphics renderer has been
-/// registered. Repeated submissions update the existing phase's frame
-/// callbacks rather than replacing the phase.
 struct CreateGui : public star::common::IServiceCommand
 {
     static constexpr std::string_view GetUniqueTypeName()
