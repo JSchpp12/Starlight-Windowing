@@ -3,15 +3,8 @@ cmake_minimum_required(VERSION 3.26)
 project(starlight_windowing
     DESCRIPTION "Library containing windowing support for starlight"
     LANGUAGES CXX
-    VERSION 1.0.4
+    VERSION 1.0.5
 )
-
-option(STARLIGHT_WINDOWING_BUILD_SHARED "Build as shared library" OFF)
-
-set(LIBTYPE STATIC)
-if(STARLIGHT_WINDOWING_BUILD_SHARED)
-    set(LIBTYPE SHARED)
-endif()
 
 find_package(starlight_common CONFIG REQUIRED)
 if(NOT TARGET Starlight::starlight)
@@ -22,8 +15,10 @@ endif()
 set(VULKAN_VERSION "1.4.313.0")
 find_package(Vulkan ${VULKAN_VERSION} REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 
 set(${PROJECT_NAME}_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/GuiDefinition.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/EngineMainLoopPolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/EngineInitPolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/EngineExitPolicy.hpp
@@ -46,10 +41,19 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/BasicCamera.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/HandleKeyReleasePolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/service/SwapChainControllerService.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/service/EngineServicesFactory.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/IGuiCaptureState.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/command/CreateGui.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/service/GuiControllerService.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/Swapchain.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderPhase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderPhaseProvider.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/ListenForRequestForSwapChainPolicy.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/GuiFactory.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiFactory.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/InitImGuiVulkanBackend.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiRenderPhase.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiRenderPhaseProvider.hpp
 )
 
 set(${PROJECT_NAME}_SOURCES 
@@ -78,10 +82,17 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/SwapChainRenderPhase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/SwapChainRenderPhaseProvider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/service/SwapChainControllerService.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/service/EngineServicesFactory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/service/GuiControllerService.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/command/CreateGui.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/Swapchain.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/GuiFactory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiFactory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiRenderPhase.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiRenderPhaseProvider.cpp
 )
 
-add_library(${PROJECT_NAME} ${LIBTYPE}
+add_library(${PROJECT_NAME} STATIC
     ${${PROJECT_NAME}_HEADERS}
     ${${PROJECT_NAME}_SOURCES}
 )
@@ -110,6 +121,8 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC
     Starlight::starlight
     starlight_common
+    # ImGui is PUBLIC so application-side frame callbacks can emit ImGui widgets.
+    imgui::imgui
     PRIVATE 
     glfw
     Vulkan::Vulkan

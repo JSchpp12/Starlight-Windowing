@@ -11,8 +11,12 @@
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/renderer/DefaultRenderPhase.hpp>
 #include <starlight/core/renderer/RenderingContext.hpp>
+#include <starlight/event/RegisterMainGraphicsRenderer.hpp>
+#include <starlight/factory/TextureFactory.hpp>
+#include <starlight/maker/texture/MakeTexture.hpp>
 
 #include <cassert>
+#include <string>
 #include <vector>
 
 namespace star::windowing
@@ -111,21 +115,28 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
     // been acquired; the render phase transitions the acquired image each frame after acquisition.
     for (vk::Image &image : device.getDevice().getVulkanDevice().getSwapchainImagesKHR(m_swapChain))
     {
-        auto builder =
-            star::StarTextures::Texture::Builder(device.getDevice(), image)
-                .setSizeInfo(star::StarTextures::Texture::CalculateSize(format, resolution, 1, vk::ImageType::e2D, 1),
-                             resolution)
-                .setBaseFormat(format)
-                .addViewInfo(vk::ImageViewCreateInfo()
-                                 .setViewType(vk::ImageViewType::e2D)
-                                 .setFormat(format)
-                                 .setSubresourceRange(vk::ImageSubresourceRange()
-                                                          .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                          .setBaseArrayLayer(0)
-                                                          .setLayerCount(1)
-                                                          .setBaseMipLevel(0)
-                                                          .setLevelCount(1)));
-        newRenderToImages.emplace_back(builder.build());
+        auto builder = star::maker::texture::MakeTexture(device.getDevice(), image)
+                           .setDebugName("SwapchainImage_" + std::to_string(newRenderToImages.size()))
+                           .setSizeInfo(star::StarTextures::TextureFactory::CalculateSize(format, resolution, 1,
+                                                                                          vk::ImageType::e2D, 1),
+                                        resolution)
+                           .setBaseFormat(format)
+                           .addViewInfo(vk::ImageViewCreateInfo()
+                                            .setViewType(vk::ImageViewType::e2D)
+                                            .setFormat(format)
+                                            .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                                     .setBaseArrayLayer(0)
+                                                                     .setLayerCount(1)
+                                                                     .setBaseMipLevel(0)
+                                                                     .setLevelCount(1)));
+        star::StarTextures::Texture texture;
+        const auto makeResult = builder.make(&texture, 1);
+        if (!makeResult)
+        {
+            STAR_THROW("Windowing: failed to create swapchain render image: " + makeResult.error().detail);
+        }
+        newRenderToImages.emplace_back(std::move(texture));
     }
 
     auto depthTextures = star::core::renderer::RenderTargets::createDefaultDepthAttachments(
@@ -207,6 +218,11 @@ std::unique_ptr<star::core::renderer::RenderPhase> SwapChainRenderPhaseProvider:
             return this->createRenderTargets(context, renderingContext);
         })
         .buildInto(*phase);
+
+    // Announce this presentation phase as the main graphics renderer so
+    // presentation-only consumers (e.g. the gui controller service) can attach
+    // their overlay to it. Emitted after buildInto so its render targets exist.
+    context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{phase.get()});
 
     return phase;
 }

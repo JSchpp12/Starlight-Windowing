@@ -12,9 +12,9 @@ namespace star::windowing
 SwapChainControllerService::SwapChainControllerService(SwapChainControllerService &&other)
     : ListenForRequestForSwapChainPolicy<SwapChainControllerService>{*this},
       m_frameTracker(std::move(other.m_frameTracker)), m_swapChain{std::move(other.m_swapChain)}, m_listenerHandle{},
-      m_listenGetFrameTracker{*this}, m_listenFrameComplete{*this},
-      m_listenPrepNextFrame{*this} ,m_winContext{std::move(other.m_winContext)},
-      m_eventBus{std::move(other.m_eventBus)}, m_cmdBus{other.m_cmdBus}, m_device{std::move(other.m_device)}
+      m_listenGetFrameTracker{*this}, m_listenFrameComplete{*this}, m_listenPrepNextFrame{*this},
+      m_winContext{std::move(other.m_winContext)}, m_eventBus{std::move(other.m_eventBus)}, m_cmdBus{other.m_cmdBus},
+      m_device{std::move(other.m_device)}
 {
     if (m_eventBus != nullptr)
     {
@@ -59,6 +59,12 @@ void SwapChainControllerService::setInitParameters(star::service::InitParameters
     m_device = &params.device;
 
     m_frameTracker = star::common::FrameTracker(params.flightTrackerSetup);
+
+    // Register the frame tracker command listener as early as possible -
+    // services initialized later in the composition resolve the tracker during
+    // their own setInitParameters phase (see FrameInFlightControllerService for
+    // the headless provider which follows the same contract).
+    initListeners(*m_cmdBus);
 }
 
 void SwapChainControllerService::onStartOfNextFrame(const star::event::StartOfNextFrame &event, bool &keepAlive)
@@ -75,7 +81,6 @@ void SwapChainControllerService::init()
     m_swapChain = SwapChain(m_winContext);
     m_swapChain.prepRender(*m_device, *m_eventBus, m_frameTracker);
     initListeners(*m_eventBus);
-    initListeners(*m_cmdBus);
 }
 
 void SwapChainControllerService::initListeners(common::EventBus &eventBus)

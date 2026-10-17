@@ -13,6 +13,10 @@ struct WindowingContext
         vk::Fence *imageAvailableFence = nullptr;
     };
 
+    /// Vulkan instance the surface/device were created from. Cached here so
+    /// presentation-coupled phases (e.g. the ImGui overlay) can reach it
+    /// without threading the instance through the engine's device context.
+    vk::Instance instance{VK_NULL_HANDLE};
     RenderingSurface surface;
     StarWindow window;
     CurrentFrameSyncInfo syncInfo;
