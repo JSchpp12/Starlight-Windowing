@@ -28,17 +28,16 @@ void EngineInitPolicy::cleanup(core::RenderingInstance &instance)
 }
 
 core::device::StarDevice EngineInitPolicy::createNewDevice(
-    core::RenderingInstance &renderingInstance,
-    std::set<Rendering_Device_Features> &engineRenderingDeviceFeatures)
+    core::RenderingInstance &renderingInstance, std::set<Rendering_Device_Features> &engineRenderingDeviceFeatures)
 {
-    const auto startupDeviceRequirements = consumeStartupDeviceRequirements();
-
     vk::SurfaceKHR vkSurface = m_winContext.surface.getVulkanSurface();
     auto builder = core::device::StarDevice::Builder(renderingInstance)
                        .setOptionalSurface(vkSurface)
                        .setAdditionalExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME})
                        .setRenderingDeviceFeatures(engineRenderingDeviceFeatures)
-                       .addRequiredDeviceRequirements(startupDeviceRequirements);
+                       .addRequiredDeviceRequirements(consumeStartupDeviceRequirements())
+                       .setRequiresShaderFloat64(star::ConfigFile::getBool(
+                           star::Config_Settings::required_device_feature_shader_float_64, false));
 
     const int overridenEngineID =
         m_overrideRenderingDeviceIndex.has_value()
