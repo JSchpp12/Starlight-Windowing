@@ -22,7 +22,10 @@ class WindowingContext;
 class SwapChainRenderPhase : public star::core::renderer::DefaultRenderPhase
 {
   public:
-    SwapChainRenderPhase() = default;
+    SwapChainRenderPhase()
+    {
+        m_waitInfo.reserve(10);
+    };
     virtual ~SwapChainRenderPhase() = default;
 
     SwapChainRenderPhase(const SwapChainRenderPhase &) = delete;
@@ -47,14 +50,11 @@ class SwapChainRenderPhase : public star::core::renderer::DefaultRenderPhase
     vk::SwapchainKHR m_swapChain;
     PresentationCommands::RecordDependencies m_presentationSharedDeps;
     PresentationCommands m_presentationCommands;
-    std::vector<vk::SemaphoreSubmitInfo> m_waitInfo{10};
+    std::vector<vk::SemaphoreSubmitInfo> m_waitInfo;
     StarQueue *m_presentationQueueToUse = nullptr;
     WindowingContext *m_winContext = nullptr;
     star::core::device::DeviceContext *device = nullptr;
     const star::core::CommandBus *m_cmdBus = nullptr;
-
-    // tracker for which frame is being processed of the available permitted frames
-    uint8_t previousFrame = 0;
 
     // explicit declaration of resize, used if driver does not trigger VK_ERROR_OUT_OF_DATE
     bool frameBufferResized = false;
