@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(starlight_windowing
     DESCRIPTION "Library containing windowing support for starlight"
     LANGUAGES CXX
-    VERSION 1.0.5
+    VERSION 1.0.6
 )
 
 find_package(starlight_common CONFIG REQUIRED)

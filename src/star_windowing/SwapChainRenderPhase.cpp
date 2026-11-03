@@ -7,6 +7,8 @@
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
+#include <star_common/helper/CastHelpers.hpp>
+
 #include <GLFW/glfw3.h>
 
 #include <array>
@@ -133,12 +135,10 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
     const size_t frameIndex = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
     const size_t presentImageIndex = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
 
-    vk::SemaphoreSubmitInfo waitInfo[10];
-    waitInfo[0]
-        .setSemaphore(*m_winContext->syncInfo.swapChainAcquireSemaphore)
-        .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
-        .setValue(0);
-    uint8_t waitInfoCount{1};
+    m_waitInfo.push_back(vk::SemaphoreSubmitInfo()
+                             .setSemaphore(*m_winContext->syncInfo.swapChainAcquireSemaphore)
+                             .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                             .setValue(0));
     assert(dataSemaphores.size() == dataWaitPoints.size());
     for (size_t i = 0; i < dataSemaphores.size(); i++)
     {
@@ -149,8 +149,8 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
         if (previousSignaledValues[i].has_value())
             value = previousSignaledValues[i].value();
 
-        waitInfo[waitInfoCount].setSemaphore(dataSemaphores[i]).setStageMask(stage2).setValue(value);
-        waitInfoCount++;
+        m_waitInfo.push_back(
+            vk::SemaphoreSubmitInfo().setSemaphore(dataSemaphores[i]).setStageMask(stage2).setValue(value));
     }
 
     const vk::CommandBufferSubmitInfo cbInfo =
@@ -170,8 +170,6 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
         {
             assert(cmd.getReply().get().edges != nullptr &&
                    "No neighbor command buffers were registered. At least one is expected");
-            assert(cmd.getReply().get().edges->size() + dataWaitPoints.size() < 10 &&
-                   "Static size container for wait semaphore info only expects a max of 10");
             for (const auto &edge : *cmd.getReply().get().edges)
             {
                 if (edge.consumer == m_commandBuffer)
@@ -179,12 +177,10 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
                     auto nCmd = star::command_order::GetPassInfo{edge.producer};
                     m_cmdBus->submit(nCmd);
 
-                    waitInfo[waitInfoCount]
-                        .setSemaphore(nCmd.getReply().get().signaledSemaphore)
-                        .setValue(nCmd.getReply().get().toSignalValue)
-                        .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-
-                    waitInfoCount++;
+                    m_waitInfo.push_back(vk::SemaphoreSubmitInfo()
+                                             .setSemaphore(nCmd.getReply().get().signaledSemaphore)
+                                             .setValue(nCmd.getReply().get().toSignalValue)
+                                             .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
                 }
             }
         }
@@ -199,9 +195,12 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
                                                     .setValue(0)
                                                     .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)};
 
+    uint32_t numWaitInfos = 0;
+    star::common::casts::SafeCast<size_t, uint32_t>(m_waitInfo.size(), numWaitInfos);
+
     const vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
-                                           .setPWaitSemaphoreInfos(waitInfo)
-                                           .setWaitSemaphoreInfoCount(waitInfoCount)
+                                           .setPWaitSemaphoreInfos(m_waitInfo.data())
+                                           .setWaitSemaphoreInfoCount(numWaitInfos)
                                            .setCommandBufferInfos(cbInfo)
                                            .setSignalSemaphoreInfos(signalInfo);
 
@@ -220,6 +219,7 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
 
     m_presentationSharedDeps.acquiredSwapChainImageIndex = frameTracker.getCurrent().getFinalTargetImageIndex();
 
+    m_waitInfo.clear();
     return rawBinaryRenderDoneSemaphores[presentImageIndex];
 }
 

@@ -47,6 +47,7 @@ class SwapChainRenderPhase : public star::core::renderer::DefaultRenderPhase
     vk::SwapchainKHR m_swapChain;
     PresentationCommands::RecordDependencies m_presentationSharedDeps;
     PresentationCommands m_presentationCommands;
+    std::vector<vk::SemaphoreSubmitInfo> m_waitInfo{10};
     StarQueue *m_presentationQueueToUse = nullptr;
     WindowingContext *m_winContext = nullptr;
     star::core::device::DeviceContext *device = nullptr;
