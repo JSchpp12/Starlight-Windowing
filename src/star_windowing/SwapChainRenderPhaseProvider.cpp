@@ -12,7 +12,6 @@
 #include <starlight/core/renderer/DefaultRenderPhase.hpp>
 #include <starlight/core/renderer/RenderingContext.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
-#include <starlight/factory/TextureFactory.hpp>
 #include <starlight/maker/texture/MakeTexture.hpp>
 
 #include <cassert>
@@ -117,9 +116,7 @@ star::core::renderer::RenderTargets star::windowing::SwapChainRenderPhaseProvide
     {
         auto builder = star::maker::texture::MakeTexture(device.getDevice(), image)
                            .setDebugName("SwapchainImage_" + std::to_string(newRenderToImages.size()))
-                           .setSizeInfo(star::StarTextures::TextureFactory::CalculateSize(format, resolution, 1,
-                                                                                          vk::ImageType::e2D, 1),
-                                        resolution)
+                           .setResolution(resolution)
                            .setBaseFormat(format)
                            .addViewInfo(vk::ImageViewCreateInfo()
                                             .setViewType(vk::ImageViewType::e2D)
