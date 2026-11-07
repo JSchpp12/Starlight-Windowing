@@ -86,7 +86,6 @@ class GuiControllerService : public IGuiCaptureState,
     // Large value members.
     std::function<void()> m_draw;
     GuiDefinition m_config{};
-    std::string m_imguiIniFile;
 
     // Pointer / handle-sized members.
     WindowingContext *m_winContext = nullptr;
@@ -96,7 +95,6 @@ class GuiControllerService : public IGuiCaptureState,
     star::core::device::StarDevice *m_device = nullptr;
     star::core::device::manager::GraphicsContainer *m_graphicsManagers = nullptr;
     ImGuiRenderPhase *m_renderPhase = nullptr;
-    vk::DescriptorPool m_imguiDescriptorPool{};
     Handle m_guiPhaseHandle;
     ListenForCreateGui<GuiControllerService> m_onCreateGui;
 
@@ -104,7 +102,6 @@ class GuiControllerService : public IGuiCaptureState,
     bool m_wantsKeyboard = false;
     bool m_wantsMouse = false;
     bool m_imguiContextInitialized = false;
-    bool m_imguiVulkanInitialized = false;
 
     void initListeners();
     void cleanupListeners();

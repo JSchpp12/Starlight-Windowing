@@ -1,7 +1,7 @@
 #include "star_windowing/SwapChainRenderPhaseProvider.hpp"
 
 #include "star_windowing/SwapChainRenderPhase.hpp"
-#include "star_windowing/WindowingContext.hpp"
+#include "star_windowing/context/WindowingContext.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
 #include <starlight/core/Exceptions.hpp>

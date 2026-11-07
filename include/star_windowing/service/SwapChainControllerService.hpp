@@ -6,7 +6,7 @@
 #include <starlight/service/InitParameters.hpp>
 
 #include <star_windowing/Swapchain.hpp>
-#include <star_windowing/WindowingContext.hpp>
+#include <star_windowing/context/WindowingContext.hpp>
 #include <star_windowing/policy/ListenForRequestForSwapChainPolicy.hpp>
 
 namespace star::windowing

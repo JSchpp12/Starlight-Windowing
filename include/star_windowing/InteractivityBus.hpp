@@ -2,7 +2,7 @@
 
 #include <star_common/EventBus.hpp>
 #include <star_windowing/IGuiCaptureState.hpp>
-#include <star_windowing/WindowingContext.hpp>
+#include <star_windowing/context/WindowingContext.hpp>
 
 #include <GLFW/glfw3.h>
 

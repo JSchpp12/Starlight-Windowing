@@ -1,6 +1,6 @@
 #include "star_windowing/ui/ImGuiRenderPhase.hpp"
 
-#include "star_windowing/ui/GuiFactory.hpp"
+#include "star_windowing/factory/GuiFactory.hpp"
 
 #include <star_common/HandleTypeRegistry.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -22,11 +22,6 @@ namespace star::windowing
 {
 namespace
 {
-/// One binary semaphore per swapchain image: the overlay signals the one
-/// dedicated to the acquired image index, and it becomes the present-wait.
-/// This satisfies the swapchain semaphore reuse contract -- the semaphore is
-/// only re-signaled after the same image has been re-acquired, which implies
-/// the presentation engine is done with it.
 void CreatePerImageRenderDoneSemaphores(star::core::device::DeviceContext &context,
                                         std::vector<PerFifRenderResource> &resources)
 {
@@ -48,9 +43,6 @@ void CreatePerImageRenderDoneSemaphores(star::core::device::DeviceContext &conte
     }
 }
 
-/// One signaled fence per frame in flight. The manager disables
-/// StarCommandBuffer's internal ready fences when a submission override is
-/// used, so the phase owns the equivalent guard for host-side record safety.
 std::vector<vk::Fence> CreateSubmitFences(star::core::device::DeviceContext &context, const size_t &numToCreate)
 {
     auto fences = std::vector<vk::Fence>(numToCreate);
@@ -157,7 +149,7 @@ std::unique_ptr<ImGuiRenderPhase> ImGuiRenderPhase::Builder::buildUnique()
     {
         target.m_perFifResources.push_back(PerFifRenderResource{
             .image = texture->getVulkanImage(),
-            .imageView = texture->getImageView(),
+            .imageView = texture->getImageView().get(texture->getBaseFormat()),
         });
         const auto baseExtent = texture->getBaseExtent();
         target.m_extent = vk::Extent2D{baseExtent.width, baseExtent.height};
@@ -214,7 +206,7 @@ void ImGuiRenderPhase::frameUpdate(star::common::IDeviceContext & /*context*/)
     // The base RenderPhase::frameUpdate is intentionally not called: it would
     // try to update render groups and query the command-order DAG, neither of
     // which this phase participates in.
-    GuiFactory::BeginFrame();
+    factory::BeginFrame();
 
     if (m_enabled)
     {
@@ -224,7 +216,7 @@ void ImGuiRenderPhase::frameUpdate(star::common::IDeviceContext & /*context*/)
         }
     }
 
-    GuiFactory::EndFrame();
+    factory::EndFrame();
 
     // Publish capture state to the gui controller service, which owns the one
     // authoritative capture decision used to gate star input events.
@@ -232,7 +224,7 @@ void ImGuiRenderPhase::frameUpdate(star::common::IDeviceContext & /*context*/)
     {
         bool keyboard = false;
         bool mouse = false;
-        GuiFactory::CaptureState(keyboard, mouse);
+        factory::CaptureState(keyboard, mouse);
         m_captureStateCallback(keyboard, mouse);
     }
 }
@@ -272,7 +264,7 @@ void ImGuiRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandBuffe
     renderingInfo.pColorAttachments = &colorAttachment;
 
     cb.beginRendering(renderingInfo);
-    GuiFactory::RenderDrawData(cb);
+    factory::RenderDrawData(cb);
     cb.endRendering();
 
     const vk::ImageMemoryBarrier2 post =

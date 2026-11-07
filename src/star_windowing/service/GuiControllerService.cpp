@@ -1,9 +1,10 @@
 #include "star_windowing/service/GuiControllerService.hpp"
 
 #include "star_windowing/InteractivityBus.hpp"
-#include "star_windowing/WindowingContext.hpp"
+#include "star_windowing/context/WindowingContext.hpp"
 #include "star_windowing/event/RequestSwapChainFromService.hpp"
-#include "star_windowing/ui/GuiFactory.hpp"
+#include "star_windowing/factory/GuiFactory.hpp"
+#include "star_windowing/maker/MakeGui.hpp"
 #include "star_windowing/ui/ImGuiRenderPhase.hpp"
 
 #include <starlight/core/Exceptions.hpp>
@@ -22,14 +23,11 @@ GuiControllerService::GuiControllerService(WindowingContext &winContext)
 
 GuiControllerService::GuiControllerService(GuiControllerService &&other)
     : IGuiCaptureState(std::move(other)), ListenForRegisterMainGraphicsRenderPolicy<GuiControllerService>(*this),
-      m_draw(std::move(other.m_draw)), m_config(std::move(other.m_config)),
-      m_imguiIniFile(std::move(other.m_imguiIniFile)), m_winContext(other.m_winContext), m_eventBus(other.m_eventBus),
-      m_cmdBus(other.m_cmdBus), m_scene(other.m_scene), m_device(other.m_device),
+      m_draw(std::move(other.m_draw)), m_config(std::move(other.m_config)), m_winContext(other.m_winContext),
+      m_eventBus(other.m_eventBus), m_cmdBus(other.m_cmdBus), m_scene(other.m_scene), m_device(other.m_device),
       m_graphicsManagers(other.m_graphicsManagers), m_renderPhase(other.m_renderPhase),
-      m_imguiDescriptorPool(other.m_imguiDescriptorPool), m_guiPhaseHandle(std::move(other.m_guiPhaseHandle)),
-      m_onCreateGui(*this), m_wantsKeyboard(other.m_wantsKeyboard), m_wantsMouse(other.m_wantsMouse),
-      m_imguiContextInitialized(other.m_imguiContextInitialized),
-      m_imguiVulkanInitialized(other.m_imguiVulkanInitialized)
+      m_guiPhaseHandle(std::move(other.m_guiPhaseHandle)), m_onCreateGui(*this), m_wantsKeyboard(other.m_wantsKeyboard),
+      m_wantsMouse(other.m_wantsMouse), m_imguiContextInitialized(other.m_imguiContextInitialized)
 {
     if (m_eventBus != nullptr)
     {
@@ -44,7 +42,6 @@ GuiControllerService &GuiControllerService::operator=(GuiControllerService &&oth
     {
         m_draw = std::move(other.m_draw);
         m_config = std::move(other.m_config);
-        m_imguiIniFile = std::move(other.m_imguiIniFile);
         m_winContext = other.m_winContext;
         m_eventBus = other.m_eventBus;
         m_cmdBus = other.m_cmdBus;
@@ -52,12 +49,10 @@ GuiControllerService &GuiControllerService::operator=(GuiControllerService &&oth
         m_device = other.m_device;
         m_graphicsManagers = other.m_graphicsManagers;
         m_renderPhase = other.m_renderPhase;
-        m_imguiDescriptorPool = other.m_imguiDescriptorPool;
         m_guiPhaseHandle = std::move(other.m_guiPhaseHandle);
         m_wantsKeyboard = other.m_wantsKeyboard;
         m_wantsMouse = other.m_wantsMouse;
         m_imguiContextInitialized = other.m_imguiContextInitialized;
-        m_imguiVulkanInitialized = other.m_imguiVulkanInitialized;
 
         if (m_eventBus != nullptr)
         {
@@ -108,9 +103,9 @@ void GuiControllerService::shutdown()
     InteractivityBus::SetCaptureStateProvider(nullptr);
     cleanupListeners();
 
-    if (m_imguiContextInitialized && m_device != nullptr)
+    if (m_imguiContextInitialized && m_winContext != nullptr)
     {
-        GuiFactory::Shutdown(*m_device, m_imguiDescriptorPool, m_imguiVulkanInitialized);
+        factory::Shutdown(m_winContext->imGuiVulkanInitialized);
         m_imguiContextInitialized = false;
     }
 }
@@ -157,8 +152,9 @@ void GuiControllerService::onRegisterMainGraphics(const star::event::RegisterMai
     // Stand up the global ImGui context/backends. Done here (rather than in
     // init()) because it must run after InteractivityBus::Init so ImGui chains
     // the star GLFW callbacks instead of overwriting them.
-    GuiFactory::Initialize(*m_device, *m_graphicsManagers, *m_eventBus, *m_winContext, swapchain, event.getRenderer(),
-                           m_config, m_imguiIniFile, m_imguiDescriptorPool, m_imguiVulkanInitialized);
+    maker::MakeGui guiMaker{*m_device, *m_graphicsManagers, *m_eventBus, *m_winContext};
+    guiMaker.setSwapchain(swapchain).setFinalizationPhase(event.getRenderer()).setConfig(m_config);
+    guiMaker.make();
     m_imguiContextInitialized = true;
 
     auto provider = std::make_unique<ImGuiRenderPhaseProvider>(m_winContext, swapchain, event.getRenderer(), m_config);

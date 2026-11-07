@@ -1,10 +1,10 @@
 #pragma once
 
-#include <star_windowing/WindowingContext.hpp>
+#include <star_windowing/context/WindowingContext.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/RenderingInstance.hpp>
-#include <starlight/core/device/StarDevice.hpp>
 #include <starlight/core/device/IStartupDeviceRequirementsProvider.hpp>
+#include <starlight/core/device/StarDevice.hpp>
 #include <starlight/core/renderer/RendererBase.hpp>
 #include <starlight/enums/Enums.hpp>
 #include <starlight/service/EngineServices.hpp>
@@ -36,9 +36,8 @@ class EngineInitPolicy
 
     core::RenderingInstance createRenderingInstance(std::string appName);
 
-    core::device::StarDevice createNewDevice(
-        core::RenderingInstance &renderingInstance,
-        std::set<Rendering_Device_Features> &engineRenderingDeviceFeatures);
+    core::device::StarDevice createNewDevice(core::RenderingInstance &renderingInstance,
+                                             std::set<Rendering_Device_Features> &engineRenderingDeviceFeatures);
     vk::Extent2D getEngineRenderingResolution();
 
     common::FrameTracker::Setup getFrameInFlightTrackingSetup(core::device::StarDevice &device);

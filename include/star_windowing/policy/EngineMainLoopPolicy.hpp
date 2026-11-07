@@ -1,6 +1,6 @@
 #pragma once
 
-#include "star_windowing/WindowingContext.hpp"
+#include "star_windowing/context/WindowingContext.hpp"
 
 #include <star_common/Handle.hpp>
 #include <starlight/core/SystemContext.hpp>

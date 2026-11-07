@@ -1,6 +1,6 @@
 #include "star_windowing/ui/ImGuiRenderPhaseProvider.hpp"
 
-#include "star_windowing/WindowingContext.hpp"
+#include "star_windowing/context/WindowingContext.hpp"
 #include "star_windowing/ui/ImGuiRenderPhase.hpp"
 
 #include <starlight/core/Exceptions.hpp>

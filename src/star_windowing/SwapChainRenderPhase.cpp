@@ -1,6 +1,6 @@
 #include "star_windowing/SwapChainRenderPhase.hpp"
 
-#include "star_windowing/WindowingContext.hpp"
+#include "star_windowing/context/WindowingContext.hpp"
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
@@ -113,8 +113,8 @@ vk::RenderingAttachmentInfo SwapChainRenderPhase::prepareDynamicRenderingInfoCol
     const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
 
     vk::RenderingAttachmentInfoKHR colorAttachmentInfo{};
-    colorAttachmentInfo.imageView =
-        m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index])->getImageView();
+    const auto *colorTexture = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
+    colorAttachmentInfo.imageView = colorTexture->getImageView().get(colorTexture->getBaseFormat());
     colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
     colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
     colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;

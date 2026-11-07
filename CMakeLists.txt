@@ -22,7 +22,7 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/EngineMainLoopPolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/EngineInitPolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/EngineExitPolicy.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/WindowingContext.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/context/WindowingContext.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/StarWindow.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/PresentationCommands.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/RenderingSurface.hpp
@@ -49,18 +49,19 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderPhase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/SwapChainRenderPhaseProvider.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/policy/ListenForRequestForSwapChainPolicy.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/GuiFactory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiFactory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/InitImGuiVulkanBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiRenderPhase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiRenderPhaseProvider.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/factory/GuiFactory.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/maker/MakeGui.hpp
 )
 
 set(${PROJECT_NAME}_SOURCES 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/EngineMainLoopPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/EngineInitPolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/policy/EngineExitPolicy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/WindowingContext.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/context/WindowingContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/StarWindow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/PresentationCommands.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/RenderingSurface.cpp
@@ -86,10 +87,11 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/service/GuiControllerService.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/command/CreateGui.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/Swapchain.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/GuiFactory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiFactory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiRenderPhase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/ui/ImGuiRenderPhaseProvider.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/factory/GuiFactory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_windowing/maker/MakeGui.cpp
 )
 
 add_library(${PROJECT_NAME} STATIC

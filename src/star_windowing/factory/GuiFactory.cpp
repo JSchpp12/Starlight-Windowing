@@ -1,7 +1,7 @@
-#include "star_windowing/ui/GuiFactory.hpp"
+#include "star_windowing/factory/GuiFactory.hpp"
 
 #include "star_windowing/GuiDefinition.hpp"
-#include "star_windowing/WindowingContext.hpp"
+#include "star_windowing/context/WindowingContext.hpp"
 #include "star_windowing/ui/ImGuiFactory.hpp"
 #include "star_windowing/ui/InitImGuiVulkanBackend.hpp"
 
@@ -17,37 +17,13 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace star::windowing::GuiFactory
+namespace star::windowing::factory
 {
 
-static vk::DescriptorPool CreateImGuiDescriptorPool(vk::Device device)
-{
-    constexpr uint32_t kSampledImages = 64;
-    constexpr uint32_t kSamplers = 2;
-
-    vk::DescriptorPoolSize sizes[2] = {
-        {vk::DescriptorType::eSampledImage, kSampledImages},
-        {vk::DescriptorType::eSampler, kSamplers},
-    };
-
-    vk::DescriptorPoolCreateInfo info{};
-    // The ImGui backend frees its texture descriptor sets individually on
-    // shutdown, which requires the free-descriptor-set flag. The pool is owned
-    // by the caller (not the engine-wide pool) so this capability stays local
-    // to the overlay.
-    info.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-    info.maxSets = kSampledImages + kSamplers;
-    info.poolSizeCount = 2;
-    info.pPoolSizes = sizes;
-
-    return device.createDescriptorPool(info);
-}
-
-void Initialize(star::core::device::StarDevice &device,
-                star::core::device::manager::GraphicsContainer &graphicsManagers, star::common::EventBus &eventBus,
-                WindowingContext &winContext, vk::SwapchainKHR swapchain,
-                const star::core::renderer::RenderPhase *finalizationPhase, const GuiDefinition &config,
-                std::string &iniFile, vk::DescriptorPool &descriptorPool, bool &vulkanInitialized)
+void MakeGui(star::core::device::StarDevice &device, star::core::device::manager::GraphicsContainer &graphicsManagers,
+             star::common::EventBus &eventBus, WindowingContext &winContext, vk::SwapchainKHR swapchain,
+             const star::core::renderer::RenderPhase *finalizationPhase, const GuiDefinition &config,
+             std::string &iniFile, bool &vulkanInitialized)
 {
     if (finalizationPhase == nullptr)
         STAR_THROW("GuiFactory requires the main graphics renderer to be known before it is initialized");
@@ -78,12 +54,12 @@ void Initialize(star::core::device::StarDevice &device,
         STAR_THROW("Failed to initialize the ImGui GLFW backend");
 
     // ---- deferred Vulkan backend ----
-    // The backend allocates its descriptor sets from the caller-owned pool, so
-    // defer its Vulkan init until DescriptorPoolReady fires (after the load
-    // phase). The context and GLFW backend above do not depend on the pool and
-    // stay eager.
+    // The backend allocates its descriptor sets from the manager-owned pool held by the windowing context, so defer
+    // its Vulkan init until DescriptorPoolReady fires (after the load phase). The context and GLFW backend above do not
+    // depend on the pool and stay eager.
     const uint32_t imageCount = static_cast<uint32_t>(device.getVulkanDevice().getSwapchainImagesKHR(swapchain).size());
-    descriptorPool = CreateImGuiDescriptorPool(device.getVulkanDevice());
+    winContext.ensureImGuiDescriptorPool(*graphicsManagers.descriptorPoolManager);
+    const vk::DescriptorPool descriptorPool = winContext.imGuiDescriptorPool();
 
     star::core::waiter::one_shot::CreateDescriptorsOnEventPolicy<InitImGuiVulkanBackend>::Builder(eventBus)
         .setEventType(star::common::HandleTypeRegistry::instance().registerType(
@@ -118,7 +94,7 @@ void RenderDrawData(vk::CommandBuffer commandBuffer)
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 }
 
-void Shutdown(star::core::device::StarDevice &device, vk::DescriptorPool &descriptorPool, bool &vulkanInitialized)
+void Shutdown(bool &vulkanInitialized)
 {
     if (vulkanInitialized)
     {
@@ -128,11 +104,5 @@ void Shutdown(star::core::device::StarDevice &device, vk::DescriptorPool &descri
 
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-
-    if (descriptorPool != VK_NULL_HANDLE)
-    {
-        device.getVulkanDevice().destroyDescriptorPool(descriptorPool);
-        descriptorPool = VK_NULL_HANDLE;
-    }
 }
-} // namespace star::windowing::GuiFactory
+} // namespace star::windowing::factory
