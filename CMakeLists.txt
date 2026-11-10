@@ -53,6 +53,7 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/InitImGuiVulkanBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiRenderPhase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/ImGuiRenderPhaseProvider.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/ui/GuiInitializer.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/factory/GuiFactory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_windowing/maker/MakeGui.hpp
 )

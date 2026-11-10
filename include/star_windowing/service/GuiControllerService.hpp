@@ -4,16 +4,12 @@
 #include <star_windowing/GuiDefinition.hpp>
 #include <star_windowing/IGuiCaptureState.hpp>
 #include <star_windowing/command/CreateGui.hpp>
-#include <star_windowing/ui/ImGuiRenderPhaseProvider.hpp>
 
 #include <starlight/policy/ListenForRegisterMainGraphicsRendererPolicy.hpp>
 #include <starlight/policy/command/ListenFor.hpp>
 #include <starlight/service/InitParameters.hpp>
 
-#include <vulkan/vulkan.hpp>
-
 #include <functional>
-#include <string>
 
 namespace star
 {
@@ -30,6 +26,7 @@ class CommandBus;
 namespace star::core::device
 {
 class StarDevice;
+class DeviceContext;
 namespace manager
 {
 struct GraphicsContainer;
@@ -50,8 +47,7 @@ using ListenForCreateGui = star::policy::command::ListenFor<T, star::windowing::
                                                             star::windowing::create_gui::GetTypeName, &T::onCreateGui>;
 
 /// @brief Owns the windowed ImGui overlay lifecycle and the single authoritative input-capture decision.
-class GuiControllerService : public IGuiCaptureState,
-                             private star::policy::ListenForRegisterMainGraphicsRenderPolicy<GuiControllerService>
+class GuiControllerService : public IGuiCaptureState
 {
   public:
     explicit GuiControllerService(WindowingContext &winContext);
@@ -76,9 +72,6 @@ class GuiControllerService : public IGuiCaptureState,
     /// Application -> service: attach or update the overlay for the given scene.
     void onCreateGui(star::windowing::CreateGui &cmd);
 
-    /// Engine -> service: the main graphics renderer exists; build the overlay.
-    void onRegisterMainGraphics(const star::event::RegisterMainGraphicsRenderer &event, bool &keepAlive);
-
   private:
     // Members grouped by size, largest first, so the layout stays compact and
     // predictable instead of interleaving pointers with value types.
@@ -93,6 +86,7 @@ class GuiControllerService : public IGuiCaptureState,
     star::core::CommandBus *m_cmdBus = nullptr;
     star::StarScene *m_scene = nullptr;
     star::core::device::StarDevice *m_device = nullptr;
+    star::core::device::DeviceContext *m_context = nullptr;
     star::core::device::manager::GraphicsContainer *m_graphicsManagers = nullptr;
     ImGuiRenderPhase *m_renderPhase = nullptr;
     Handle m_guiPhaseHandle;

@@ -5,8 +5,9 @@
 #include "star_windowing/event/RequestSwapChainFromService.hpp"
 #include "star_windowing/factory/GuiFactory.hpp"
 #include "star_windowing/maker/MakeGui.hpp"
+#include "star_windowing/ui/GuiInitializer.hpp"
 #include "star_windowing/ui/ImGuiRenderPhase.hpp"
-
+#include "star_windowing/ui/ImGuiRenderPhaseProvider.hpp"
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarScene.hpp>
@@ -16,16 +17,14 @@
 namespace star::windowing
 {
 GuiControllerService::GuiControllerService(WindowingContext &winContext)
-    : ListenForRegisterMainGraphicsRenderPolicy<GuiControllerService>(*this), m_winContext(&winContext),
-      m_onCreateGui(*this)
+    : m_winContext(&winContext), m_onCreateGui(*this)
 {
 }
 
 GuiControllerService::GuiControllerService(GuiControllerService &&other)
-    : IGuiCaptureState(std::move(other)), ListenForRegisterMainGraphicsRenderPolicy<GuiControllerService>(*this),
-      m_draw(std::move(other.m_draw)), m_config(std::move(other.m_config)), m_winContext(other.m_winContext),
-      m_eventBus(other.m_eventBus), m_cmdBus(other.m_cmdBus), m_scene(other.m_scene), m_device(other.m_device),
-      m_graphicsManagers(other.m_graphicsManagers), m_renderPhase(other.m_renderPhase),
+    : IGuiCaptureState(std::move(other)), m_draw(std::move(other.m_draw)), m_config(std::move(other.m_config)),
+      m_winContext(other.m_winContext), m_eventBus(other.m_eventBus), m_cmdBus(other.m_cmdBus), m_scene(other.m_scene),
+      m_device(other.m_device), m_graphicsManagers(other.m_graphicsManagers), m_renderPhase(other.m_renderPhase),
       m_guiPhaseHandle(std::move(other.m_guiPhaseHandle)), m_onCreateGui(*this), m_wantsKeyboard(other.m_wantsKeyboard),
       m_wantsMouse(other.m_wantsMouse), m_imguiContextInitialized(other.m_imguiContextInitialized)
 {
@@ -68,18 +67,12 @@ void GuiControllerService::initListeners()
 {
     if (m_cmdBus != nullptr)
         m_onCreateGui.init(*m_cmdBus);
-
-    if (m_eventBus != nullptr)
-        ListenForRegisterMainGraphicsRenderPolicy<GuiControllerService>::init(*m_eventBus);
 }
 
 void GuiControllerService::cleanupListeners()
 {
     if (m_cmdBus != nullptr)
         m_onCreateGui.cleanup(*m_cmdBus);
-
-    if (m_eventBus != nullptr)
-        ListenForRegisterMainGraphicsRenderPolicy<GuiControllerService>::cleanup(*m_eventBus);
 }
 
 void GuiControllerService::setInitParameters(star::service::InitParameters &params)
@@ -87,6 +80,7 @@ void GuiControllerService::setInitParameters(star::service::InitParameters &para
     m_eventBus = &params.eventBus;
     m_cmdBus = &params.commandBus;
     m_device = &params.device;
+    m_context = &params.context;
     m_graphicsManagers = &params.graphicsManagers;
 }
 
@@ -132,32 +126,29 @@ void GuiControllerService::onCreateGui(star::windowing::CreateGui &cmd)
         phase->clearFrameCallbacks();
         if (m_draw)
             phase->addFrameCallback(m_draw);
-    }
-}
-
-void GuiControllerService::onRegisterMainGraphics(const star::event::RegisterMainGraphicsRenderer &event,
-                                                  bool &keepAlive)
-{
-    keepAlive = true;
-
-    // Overlay attaches to the first registered main renderer, and only once.
-    if (m_scene == nullptr || m_guiPhaseHandle.isInitialized())
         return;
+    }
+
+    assert(m_context != nullptr && "GuiControllerService requires a DeviceContext");
+
+    // The main graphics phase is built by the time CreateGui is submitted, so the overlay can attach now.
+    auto *finalizationPhase = m_scene->getPhase(cmd.finalizationPhase);
+    if (finalizationPhase == nullptr)
+        STAR_THROW("GuiControllerService requires the built finalization phase");
 
     vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
     m_eventBus->emit(star::windowing::event::RequestSwapChainFromService{swapchain});
     if (swapchain == VK_NULL_HANDLE)
         STAR_THROW("GuiControllerService failed to acquire the swapchain for the ImGui overlay");
 
-    // Stand up the global ImGui context/backends. Done here (rather than in
-    // init()) because it must run after InteractivityBus::Init so ImGui chains
-    // the star GLFW callbacks instead of overwriting them.
+    // Stand up the global ImGui context/backends here: it must run after InteractivityBus::Init so ImGui chains the
+    // star GLFW callbacks instead of overwriting them.
     maker::MakeGui guiMaker{*m_device, *m_graphicsManagers, *m_eventBus, *m_winContext};
-    guiMaker.setSwapchain(swapchain).setFinalizationPhase(event.getRenderer()).setConfig(m_config);
+    guiMaker.setSwapchain(swapchain).setFinalizationPhase(finalizationPhase).setConfig(m_config);
     guiMaker.make();
     m_imguiContextInitialized = true;
 
-    auto provider = std::make_unique<ImGuiRenderPhaseProvider>(m_winContext, swapchain, event.getRenderer(), m_config);
+    auto provider = std::make_unique<ImGuiRenderPhaseProvider>(m_winContext, swapchain, finalizationPhase, m_config);
 
     // Route ImGui's capture flags back so the service remains the one owner of
     // the capture decision.
@@ -169,9 +160,9 @@ void GuiControllerService::onRegisterMainGraphics(const star::event::RegisterMai
     if (m_draw)
         provider->addFrameCallback(m_draw);
 
-    // Queueing during prepRender is supported: the scene pops providers FIFO, so
-    // this one is built right after the finalization phase it overlays.
-    m_guiPhaseHandle = m_scene->addProvider(std::move(provider));
+    GuiInitializer initializer{*m_scene, cmd.finalizationPhase, std::move(provider)};
+    m_guiPhaseHandle = initializer.submitMe(*m_context);
+    resolveRenderPhase();
 }
 
 ImGuiRenderPhase *GuiControllerService::resolveRenderPhase()

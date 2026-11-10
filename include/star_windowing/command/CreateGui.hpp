@@ -1,5 +1,6 @@
 #pragma once
 
+#include <star_common/Handle.hpp>
 #include <star_common/IServiceCommand.hpp>
 
 #include <functional>
@@ -34,7 +35,15 @@ struct CreateGui : public star::common::IServiceCommand
     {
     }
 
+    CreateGui &setFinalizationPhase(Handle handle)
+    {
+        finalizationPhase = std::move(handle);
+        return *this;
+    }
+
     star::StarScene &scene;
     std::function<void()> draw;
+    /// @brief The already-built main graphics phase the overlay attaches to.
+    Handle finalizationPhase;
 };
 } // namespace star::windowing
