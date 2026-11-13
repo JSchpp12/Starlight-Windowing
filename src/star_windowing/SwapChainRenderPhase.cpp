@@ -102,8 +102,10 @@ std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissio
     getSubmissionOverride()
 {
     star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride overrideFn =
-        std::bind(&SwapChainRenderPhase::submitBuffer, this, std::placeholders::_1, std::placeholders::_2,
-                  std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6);
+        [this](star::StarCommandBuffer &buffer, const star::common::FrameTracker &ft,
+               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+               std::span<const star::StarCommandBuffer::Data> dataWaits,
+               star::StarQueue &) { return submitBuffer(buffer, ft, previousCommandBufferSemaphores, dataWaits); };
     return overrideFn;
 }
 
@@ -126,9 +128,7 @@ vk::RenderingAttachmentInfo SwapChainRenderPhase::prepareDynamicRenderingInfoCol
 vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer,
                                                  const star::common::FrameTracker &frameTracker,
                                                  std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                                                 std::vector<vk::Semaphore> &dataSemaphores,
-                                                 std::vector<vk::PipelineStageFlags> &dataWaitPoints,
-                                                 std::vector<std::optional<uint64_t>> &previousSignaledValues)
+                                                 std::span<const star::StarCommandBuffer::Data> dataWaits)
 {
     assert(m_presentationQueueToUse != nullptr);
 
@@ -139,18 +139,15 @@ vk::Semaphore SwapChainRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
                              .setSemaphore(*m_winContext->syncInfo.swapChainAcquireSemaphore)
                              .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
                              .setValue(0));
-    assert(dataSemaphores.size() == dataWaitPoints.size());
-    for (size_t i = 0; i < dataSemaphores.size(); i++)
+    for (const auto &wait : dataWaits)
     {
         const vk::PipelineStageFlags2 stage2 =
-            static_cast<vk::PipelineStageFlags2>(static_cast<uint32_t>(dataWaitPoints[i]));
+            static_cast<vk::PipelineStageFlags2>(static_cast<uint32_t>(wait.waitPoints));
 
-        uint64_t value = 0;
-        if (previousSignaledValues[i].has_value())
-            value = previousSignaledValues[i].value();
-
-        m_waitInfo.push_back(
-            vk::SemaphoreSubmitInfo().setSemaphore(dataSemaphores[i]).setStageMask(stage2).setValue(value));
+        m_waitInfo.push_back(vk::SemaphoreSubmitInfo()
+                                 .setSemaphore(wait.semaphore)
+                                 .setStageMask(stage2)
+                                 .setValue(wait.signaledValue.value_or(0)));
     }
 
     const vk::CommandBufferSubmitInfo cbInfo =

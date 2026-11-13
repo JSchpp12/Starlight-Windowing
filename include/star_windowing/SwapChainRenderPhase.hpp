@@ -3,10 +3,12 @@
 #include "star_windowing/PresentationCommands.hpp"
 
 #include <starlight/core/renderer/DefaultRenderPhase.hpp>
+#include <starlight/wrappers/graphics/StarCommandBuffer.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace star::core
@@ -65,9 +67,7 @@ class SwapChainRenderPhase : public star::core::renderer::DefaultRenderPhase
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> &dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> &dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> &previousSignaledValues);
+                               std::span<const star::StarCommandBuffer::Data> dataWaits);
 
     /// If the swapchain is no longer compatible, it must be recreated.
     virtual void recreateSwapChain();

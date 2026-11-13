@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -94,9 +95,7 @@ class ImGuiRenderPhase : public star::core::renderer::RenderPhase
   protected:
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> &dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> &dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> &previousSignaledValues);
+                               std::span<const star::StarCommandBuffer::Data> dataWaits);
 
     void waitForSubmitFence(const int &frameInFlightIndex);
     CaptureStateCallback m_captureStateCallback;

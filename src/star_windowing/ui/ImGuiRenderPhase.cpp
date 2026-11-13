@@ -179,7 +179,11 @@ std::unique_ptr<ImGuiRenderPhase> ImGuiRenderPhase::Builder::buildUnique()
             .recordOnce = false,
             .beforeBufferSubmissionCallback = std::bind(&ImGuiRenderPhase::waitForSubmitFence, &target, ph::_1),
             .overrideBufferSubmissionCallback =
-                std::bind(&ImGuiRenderPhase::submitBuffer, &target, ph::_1, ph::_2, ph::_3, ph::_4, ph::_5, ph::_6)},
+                [targetPtr = &target](star::StarCommandBuffer &buffer, const star::common::FrameTracker &ft,
+                                      std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+                                      std::span<const star::StarCommandBuffer::Data> dataWaits, star::StarQueue &) {
+                    return targetPtr->submitBuffer(buffer, ft, previousCommandBufferSemaphores, dataWaits);
+                }},
         m_context.frameTracker().getCurrent().getGlobalFrameCounter());
 
     return phase;
@@ -300,9 +304,7 @@ void ImGuiRenderPhase::waitForSubmitFence(const int &frameInFlightIndex)
 
 vk::Semaphore ImGuiRenderPhase::submitBuffer(StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                              std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                                             std::vector<vk::Semaphore> &dataSemaphores,
-                                             std::vector<vk::PipelineStageFlags> &dataWaitPoints,
-                                             std::vector<std::optional<uint64_t>> &previousSignaledValues)
+                                             std::span<const star::StarCommandBuffer::Data> dataWaits)
 {
     assert(m_presentQueue != nullptr && "Presentation queue must be assigned by the builder");
 
@@ -326,19 +328,13 @@ vk::Semaphore ImGuiRenderPhase::submitBuffer(StarCommandBuffer &buffer, const st
     }
 
     // honor any one-time waits handed to us by the command buffer manager
-    assert(dataSemaphores.size() == dataWaitPoints.size() &&
-           "One-time wait semaphores and wait points are out of alignment");
-    for (size_t i = 0; i < dataSemaphores.size(); i++)
+    for (const auto &wait : dataWaits)
     {
-        uint64_t value = 0;
-        if (i < previousSignaledValues.size() && previousSignaledValues[i].has_value())
-            value = previousSignaledValues[i].value();
-
         m_waitInfos.push_back(
             vk::SemaphoreSubmitInfo()
-                .setSemaphore(dataSemaphores[i])
-                .setValue(value)
-                .setStageMask(static_cast<vk::PipelineStageFlags2>(static_cast<uint32_t>(dataWaitPoints[i]))));
+                .setSemaphore(wait.semaphore)
+                .setValue(wait.signaledValue.value_or(0))
+                .setStageMask(static_cast<vk::PipelineStageFlags2>(static_cast<uint32_t>(wait.waitPoints))));
     }
 
     const vk::CommandBufferSubmitInfo cbInfo =
